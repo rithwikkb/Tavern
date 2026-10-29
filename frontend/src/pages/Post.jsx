@@ -4,6 +4,7 @@ import '../styles/pages/Post.css';
 import { ReactComponent as ImageUploader } from './../assets/imageUploader.svg';
 import MarkdownEditor from '../components/MarkdownEditor';
 import { createPost, getPost, updatePost } from '../services/PostsService';
+import { prepareImageForPost } from '../utils/prepareImage';
 import { getAuthor } from '../services/AuthorsService';
 import Cookies from 'js-cookie';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
@@ -26,6 +27,8 @@ const Post = () => {
   const [markdown, setMarkdown] = useState('');
   const [loading, setLoading] = useState(true);
   const [currentProfileData, setCurrentProfileData] = useState(null);
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   // For sharing
   const location = useLocation();
@@ -177,29 +180,35 @@ const Post = () => {
   };
 
   const handlePostClick = async () => {
-    console.log("handlePostClick triggered");
+    setError('');
     const postData = {
       type: 'post',
       author: currentProfileData,
       title: title || 'New Post',
       visibility: visibility.toUpperCase(),
     };
-    console.log("selectedOption: ", selectedOption);
-    console.log("Uploaded file object:", imgFile);
     if (selectedOption === 'Plain') {
       postData.content = plainText;
       postData.contentType = 'text/plain';
     } else if (selectedOption === 'Markdown') {
       postData.content = markdown;
       postData.contentType = 'text/markdown';
-    } else if (selectedOption === 'Image' && imgFile) {
-      const base64Image = await imgToBase64(imgFile);
-      postData.content = base64Image;
-      postData.contentType = `image/${imgFile.type.split('/')[1]};base64`
-      console.log("Uploaded file type:", imgFile.type);
+    } else if (selectedOption === 'Image') {
+      if (!imgFile) {
+        setError('Choose an image to post.');
+        return;
+      }
     }
 
+    setSubmitting(true);
     try {
+      if (selectedOption === 'Image') {
+        // shrink large photos so they fit within the server's upload limit
+        const { content, contentType } = await prepareImageForPost(imgFile);
+        postData.content = content;
+        postData.contentType = contentType;
+      }
+
       if (sharePost) {
         // Create a new post when sharing
         await createPost(authorId, postData);
@@ -215,21 +224,14 @@ const Post = () => {
       navigate(`/profile/${authorId}`);
     } catch (error) {
       console.error('Error during post creation/updating:', error);
+      setError(
+        error.response?.data?.error ||
+          (error.response ? "Couldn't save the post. Please try again." : error.message) ||
+          "Couldn't save the post. Please try again."
+      );
+    } finally {
+      setSubmitting(false);
     }
-  };
-
-  const imgToBase64 = async (imgFile) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(imgFile);
-      reader.onload = () => {
-        const base64String = reader.result.split(',')[1];
-        resolve(base64String);
-      };
-      reader.onerror = (error) => {
-        reject(error);
-      };
-    });
   };
 
   const handleDeleteClick = async () => {
@@ -369,9 +371,10 @@ const Post = () => {
         </label>
       </div>
 
+      {error && <div className="post-error" role="alert">{error}</div>}
       <div className="postPage-buttons">
-        <button className="post-button" onClick={handlePostClick}>
-          Post
+        <button className="post-button" onClick={handlePostClick} disabled={submitting}>
+          {submitting ? 'Posting...' : 'Post'}
         </button>
         {postId && (
           // <button className="delete-button" onClick={handleDeleteClick}>

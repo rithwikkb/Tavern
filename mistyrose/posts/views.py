@@ -1,4 +1,5 @@
 import base64
+import logging
 import re
 import uuid
 from django.shortcuts import render
@@ -19,6 +20,8 @@ from users.models import Author, Follows
 from .pagination import LikesPagination, CustomPostsPagination
 import urllib.parse  # asked chatGPT how to decode the URL-encoded FQID 2024-11-02
 from django.http import FileResponse
+from django.conf import settings
+from django.core.cache import cache
 import requests
 from requests.auth import HTTPBasicAuth #basic auth
 from django.db import transaction #transaction requests so that if something happens in the middle, it'll be rolled back
@@ -26,6 +29,8 @@ from urllib.parse import unquote, urlparse
 from rest_framework_simplejwt.authentication import JWTAuthentication  
 from rest_framework.generics import ListAPIView  
 from rest_framework.pagination import PageNumberPagination
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -1214,21 +1219,41 @@ class LikedFQIDView(APIView):
 #endregion
 
 #region Github Vews
+# GitHub usernames: letters, digits and single hyphens, up to 39 characters
+GITHUB_USERNAME_RE = re.compile(r'^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$')
+GITHUB_EVENTS_CACHE_SECONDS = 15 * 60
+
 class GitHubEventsView(APIView):
     """
     Get public GitHub events for a username.
     """
 
     def get(self, request, username):
+        if not GITHUB_USERNAME_RE.match(username):
+            return Response({'error': 'Invalid GitHub username.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # GitHub allows only 60 unauthenticated requests per hour per IP, so cache each user's events
+        cache_key = f'github-events:{username.lower()}'
+        events = cache.get(cache_key)
+        if events is not None:
+            return Response(events, status=status.HTTP_200_OK)
+
         github_api_url = f'https://api.github.com/users/{username}/events/public'
         headers = {
             'Accept': 'application/vnd.github+json',
         }
+        if settings.GITHUB_TOKEN:
+            headers['Authorization'] = f'Bearer {settings.GITHUB_TOKEN}'
 
         try:
             response = requests.get(github_api_url, headers=headers, timeout=10)
             response.raise_for_status()  # Raise an error for bad responses
-            return Response(response.json(), status=status.HTTP_200_OK)
-        except requests.exceptions.RequestException as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            events = response.json()
+        except (requests.exceptions.RequestException, ValueError) as e:
+            # GitHub being down or rate limited shouldn't break the page; just show no activity
+            logger.warning("Could not fetch GitHub events for %s: %s", username, e)
+            return Response([], status=status.HTTP_200_OK)
+
+        cache.set(cache_key, events, GITHUB_EVENTS_CACHE_SECONDS)
+        return Response(events, status=status.HTTP_200_OK)
 #endregion

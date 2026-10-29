@@ -506,3 +506,15 @@ class AdminManagementTests(APITestCase):
         response = self.client.get("/api/authors/00000000-0000-0000-0000-000000000000/")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(response.data["detail"], "No Author matches the given query.")
+
+
+class AdminAccountLoginTest(TestCase):
+    def test_admin_without_author_profile_gets_clear_error(self):
+        User.objects.create_superuser(username="admin", email="admin@example.com", password="Admin-pass-123")
+        response = self.client.post(
+            "/api/login/",
+            {"username": "admin", "password": "Admin-pass-123"},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("admin panel", response.json()["error"])

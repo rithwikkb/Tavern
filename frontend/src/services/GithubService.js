@@ -3,23 +3,46 @@ import { getAuthorProfile } from './profileService';
 import api from './axios';
 import { getAuthor } from './AuthorsService';
 
+// Only turn the newest few events into posts so one sync can't flood the feed
+const MAX_NEW_ACTIVITY_POSTS = 5;
+
+// Sync at most once per browser session per author, not on every visit to Home
+const alreadySyncedThisSession = (authorId) => {
+  try {
+    return sessionStorage.getItem(`githubSynced:${authorId}`) === '1';
+  } catch {
+    return false;
+  }
+};
+
+const markSyncedThisSession = (authorId) => {
+  try {
+    sessionStorage.setItem(`githubSynced:${authorId}`, '1');
+  } catch {
+    // storage unavailable (e.g. private mode); syncing again later is harmless
+  }
+};
+
 export const makeGithubActivityPosts = async (authorId) => {
-  console.log('Making Github activity posts');
+  if (alreadySyncedThisSession(authorId)) {
+    return;
+  }
+  markSyncedThisSession(authorId);
+
   try {
     const author = await getAuthor(authorId);
     const authorProfile = await getAuthorProfile(authorId);
-    const username = authorProfile.github?.split('/').pop();
-    if (!username) {
-      console.log('Github username not found');
-      throw new Error('Github username not found');
+    const username = authorProfile.github?.replace(/\/+$/, '').split('/').pop();
+    if (!username || username === 'github.com') {
+      // no GitHub account linked
+      return;
     }
-    console.log('Github username:', username);
     const posts = (await getAllPosts(authorId)).data.src ?? [];
 
-    // 1. Get raw data from Github API
+    // 1. Get raw data from Github API (newest events first)
     const rawData = await getGithubActivityData(username);
 
-    // 2. Parse date and event type
+    // 2. Parse date and event type, skipping events that already have a post
     const parsedData = rawData
       .map((event) => {
         return {
@@ -34,7 +57,8 @@ export const makeGithubActivityPosts = async (authorId) => {
         return posts.every((post) => {
           return post.description !== String(event.id);
         });
-      });
+      })
+      .slice(0, MAX_NEW_ACTIVITY_POSTS);
 
     // 3. Turn into strings
     const stringifiedData = getStringsFromParsedData(parsedData, username);
@@ -49,7 +73,6 @@ export const makeGithubActivityPosts = async (authorId) => {
 
       // add id to check if post already exists
       postData.append('description', String(parsedData[i].id));
-      console.log('Post data:', postData);
       await createPost(authorId, postData);
     }
   } catch (error) {
@@ -60,18 +83,10 @@ export const makeGithubActivityPosts = async (authorId) => {
 export const getGithubActivityData = async (username) => {
   try {
     const response = await api.get(`posts/github/events/${username}/`);
-    // const response = await axios.get(
-    //   `https://api.github.com/users/${username}/events/public`,
-    //   {
-    //     headers: {
-    //       Accept: 'application/vnd.github+json',
-    //     },
-    //   }
-    // );
-    console.log(`Github activity data for ${username}:`, response.data);
-    return response.data ?? [];
+    return Array.isArray(response.data) ? response.data : [];
   } catch (error) {
     console.error(error);
+    return [];
   }
 };
 

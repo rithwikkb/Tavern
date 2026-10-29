@@ -181,6 +181,27 @@ STORAGES = {
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Send warnings and errors (including 500 tracebacks) to stdout so they show up in the host's logs.
+# Django's default only logs to the console when DEBUG is on.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "simple": {"format": "{levelname} {asctime} {name}: {message}", "style": "{"},
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "simple"},
+    },
+    "root": {"handlers": ["console"], "level": "WARNING"},
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": os.environ.get("DJANGO_LOG_LEVEL", "INFO"),
+            "propagate": False,
+        },
+    },
+}
+
 # Media files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -193,6 +214,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    'EXCEPTION_HANDLER': 'mistyrose.exceptions.exception_handler',
     # Rates for views that opt in with throttle_scope
     'DEFAULT_THROTTLE_RATES': {
         'image_upload': os.environ.get('IMAGE_UPLOAD_RATE', '10/hour'),
@@ -220,6 +242,9 @@ if not DEBUG:
 
 # New signups can log in right away unless this is enabled (then an admin must activate them)
 SIGNUP_REQUIRES_APPROVAL = os.environ.get("SIGNUP_REQUIRES_APPROVAL", "False").lower() in ("1", "true", "yes")
+
+# Optional GitHub token; raises the GitHub API limit from 60 to 5,000 requests/hour
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 
 # Imgur API
 IMGUR_CLIENT_ID = os.environ.get("IMGUR_CLIENT_ID", "d205e7a60257aba")

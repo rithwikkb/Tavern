@@ -31,7 +31,7 @@ from rest_framework.exceptions import NotFound
 from rest_framework.throttling import ScopedRateThrottle
 import urllib.parse
 
-from .utils import is_fqid, upload_to_imgur, is_request_author, get_request_author, are_friends
+from .utils import is_fqid, upload_to_imgur, is_request_author, get_request_author, are_friends, parse_uuid
 
 # Default profile picture URL to be used when no image is provided
 DEFAULT_PROFILE_PIC = "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png"
@@ -75,7 +75,11 @@ class LoginView(APIView):
         if not user.is_active:  # Check if the user is active
             return Response({"error": "User account is not activated. Please contact an admin."}, status=status.HTTP_403_FORBIDDEN)
         
-        author_id = Author.objects.get(user=user).id  # Fetch the associated Author ID
+        author = Author.objects.filter(user=user).first()  # Fetch the associated Author
+        if author is None:
+            # e.g. an admin account made with createsuperuser, which has no author profile
+            return Response({"error": "This account can only sign in to the admin panel."}, status=status.HTTP_403_FORBIDDEN)
+        author_id = author.id
         refresh = RefreshToken.for_user(user)  # Generate JWT refresh token for the user
         access_token = str(refresh.access_token)  # Get the access token from the refresh token
         
@@ -220,7 +224,7 @@ class AuthorDetailView(generics.RetrieveAPIView):
             # Try to find the author by its URL (FQID)
             author = get_object_or_404(Author, url=pk)
         else:
-            pk = uuid.UUID(pk)
+            pk = parse_uuid(pk)
             # Try to find the author by its SERIAL (id)
             author = get_object_or_404(Author, id=pk)
 
@@ -240,7 +244,7 @@ class AuthorProfileView(APIView):
             # if no trailing slash, append it
             if not pk.endswith('/'):
                 pk += '/'
-        pk = uuid.UUID(pk)
+        pk = parse_uuid(pk)
         
         friends_view = FriendsView()
         friends_response = friends_view.get(request, pk=pk)
@@ -271,14 +275,14 @@ class AuthorProfileView(APIView):
                 pk += '/'
             author = get_object_or_404(Author, url=pk)
         else:
-            pk = uuid.UUID(pk)
+            pk = parse_uuid(pk)
             author = get_object_or_404(Author, pk=pk)
         
         # Serialize author data
         author_data = AuthorSerializer(author).data
         
         # Gather counts and categorized posts
-        friends_count = self.get_friends_count(request, pk=pk)
+        friends_count = self.get_friends_count(request, pk=author.id)
         followers_count = self.get_follower_count(author)
         following_count = self.get_following_count(author)
         public_posts = self.get_author_posts(author, 'PUBLIC')
@@ -315,7 +319,7 @@ class AuthorEditProfileView(APIView):
                 pk += '/'
             author = get_object_or_404(Author, url=pk)
         else:
-            pk = uuid.UUID(pk)
+            pk = parse_uuid(pk)
             author = get_object_or_404(Author, pk=pk)
         
         # Serialize the author for editing profile purposes
@@ -335,7 +339,7 @@ class AuthorEditProfileView(APIView):
                 pk += '/'
             author = get_object_or_404(Author, url=pk)
         else:
-            pk = uuid.UUID(pk)
+            pk = parse_uuid(pk)
             author = get_object_or_404(Author, pk=pk)
         
         if not is_request_author(request, author.id):
@@ -487,7 +491,7 @@ class FollowersDetailView(APIView):
                 pk += '/'
             author = get_object_or_404(Author, url=pk)
         else:
-            pk = uuid.UUID(pk)
+            pk = parse_uuid(pk)
             author = get_object_or_404(Author, id=pk)
         
         # Retrieve all followers who have an accepted follow request for the author
@@ -524,7 +528,7 @@ class FollowingDetailView(APIView):
                 pk += '/'
             author = get_object_or_404(Author, url=pk)
         else:
-            pk = uuid.UUID(pk)
+            pk = parse_uuid(pk)
             author = get_object_or_404(Author, id=pk)
             
         
@@ -568,7 +572,7 @@ class FriendsView(APIView):
                     pk += '/'
                 viewed_author = get_object_or_404(Author, url=pk)
             else:
-                pk = uuid.UUID(pk)
+                pk = parse_uuid(pk)
                 viewed_author = get_object_or_404(Author, id=pk)
         else:
             viewed_author = current_user

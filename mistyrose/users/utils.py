@@ -2,6 +2,7 @@ from urllib.parse import urlparse
 import uuid
 import requests
 from django.conf import settings
+from django.http import Http404
 
 def get_request_author(request):
     """
@@ -33,6 +34,16 @@ def are_friends(author_a, author_b):
         Follows.objects.filter(local_follower_id=author_a, followed_id=author_b, status='ACCEPTED').exists()
         and Follows.objects.filter(local_follower_id=author_b, followed_id=author_a, status='ACCEPTED').exists()
     )
+
+def parse_uuid(value):
+    """
+    Parse an author/post SERIAL, treating anything that isn't a UUID as not found
+    (instead of letting ValueError become a 500).
+    """
+    try:
+        return uuid.UUID(str(value))
+    except ValueError:
+        raise Http404("Not found.")
 
 def is_fqid(value):
     """

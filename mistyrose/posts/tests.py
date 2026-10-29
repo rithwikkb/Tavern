@@ -744,6 +744,68 @@ class LikedFQIDViewTest(BaseTestCase):
 
 
 # User Story #5 Test: As an author, I want to my (new, public) GitHub activity to be automatically turned into public posts, so everyone can see my GitHub activity too.
+class GitHubEventsViewTest(APITestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.user = User.objects.create_user(username="gh_user", password="pass")
+        Author.objects.create(display_name="GH", host="http://testserver", user=self.user)
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
+
+    @patch("posts.views.requests.get")
+    def test_events_are_cached(self, mock_get):
+        mock_get.return_value.json.return_value = [{"id": "1", "type": "PushEvent"}]
+        mock_get.return_value.raise_for_status.return_value = None
+
+        first = self.client.get("/api/posts/github/events/octocat/")
+        second = self.client.get("/api/posts/github/events/octocat/")
+
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertEqual(second.data, [{"id": "1", "type": "PushEvent"}])
+        self.assertEqual(mock_get.call_count, 1)
+
+    @patch("posts.views.requests.get")
+    def test_github_failure_returns_empty_list(self, mock_get):
+        import requests as requests_lib
+        mock_get.side_effect = requests_lib.exceptions.HTTPError("403 rate limited")
+
+        response = self.client.get("/api/posts/github/events/octocat/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, [])
+
+    @patch("posts.views.requests.get")
+    def test_invalid_username_rejected(self, mock_get):
+        response = self.client.get("/api/posts/github/events/bad..name/")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        mock_get.assert_not_called()
+
+
+class InvalidIdTest(APITestCase):
+    """Malformed IDs in URLs should be client errors, never 500s."""
+    def setUp(self):
+        self.user = User.objects.create_user(username="id_user", password="pass")
+        self.author = Author.objects.create(display_name="IDs", host="http://testserver", user=self.user)
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
+
+    def test_bad_ids_do_not_500(self):
+        bad = "not-a-uuid"
+        paths = [
+            f"/api/authors/{bad}/profile/",
+            f"/api/authors/{bad}/posts/",
+            f"/api/authors/{bad}/followers/{bad}/",
+            f"/api/authors/{self.author.id}/posts/{bad}/image/",
+            f"/api/authors/{self.author.id}/posts/{bad}/comments/",
+            f"/api/authors/{self.author.id}/liked/{bad}/",
+            f"/api/authors/{bad}/inbox/follow_requests/",
+        ]
+        for path in paths:
+            response = self.client.get(path)
+            self.assertIn(response.status_code, (400, 404), path)
+
+
 class GitHubActivityToPostTest(TestCase):
     @patch('requests.get')  # Mock GitHub API call
     def test_github_activity_to_posts(self, mock_get):
