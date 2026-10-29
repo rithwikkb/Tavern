@@ -1,101 +1,76 @@
+/* a card in the same style as the post cards */
 .FollowRequest-container {
   width: 100%;
+  box-sizing: border-box;
+  background-color: #fff9f3;
+  border: 3px solid black;
+  border-radius: 24px;
+  padding: 14px 16px;
+}
+
+.requests-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: 'Fredoka', sans-serif;
+  font-size: large;
+  font-weight: bold;
+  color: inherit;
+  text-align: left;
+}
+
+.requests-count {
+  min-width: 22px;
+  padding: 1px 7px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background-color: #2E3D34;
+  color: #f7ebc9;
+  font-size: 0.75em;
+  text-align: center;
+}
+
+.requests-chevron.MuiSvgIcon-root {
+  margin-left: auto;
+  transition: transform 0.2s ease;
+}
+.requests-chevron.collapsed {
+  transform: rotate(-90deg);
+}
+
+.requests-empty {
+  margin: 10px 0 0 0;
+  color: #777;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 0.95em;
 }
 
 .follow-request-box {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem;
-  border-radius: 20px;
-  background-color: rgba(196, 188, 140, 0.887);
-  margin-bottom: 15px;
-  width: auto;
+  gap: 10px;
+  padding-top: 12px;
+  margin-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
 }
-
-.btns {
-  display: flex;
-  margin-left: auto;
-}
-
-.requests-title {
-  font-family: 'Fredoka', sans-serif;
-  display: flex;
-  align-items: center;
-  font-weight: 600;
-  font-size: large;
-  margin-bottom: 20px;
-  font-weight: bold;
-}
-
-.dropdown-icon {
-  width: 10px; 
-  height: 10px;
-  margin-left: 8px; 
-  cursor: pointer;
-  transition: transform 0.3s ease;
-}
-
-.dropdown-icon.rotated {
-  transform: rotate(180deg); 
-}
-
-.follower-name {
-  width: auto;
-  font-family: 'Fredoka', sans-serif;
-  padding-right: 2px;
-  padding-top: 15px;
-}
-
-.accept-button,
-.reject-button {
-  border: none;
-  background: none;
-  cursor: pointer;
-  margin-bottom: -0.5rem;
-}
-
-.accept-button {
-    color: #00A32A;
-}
-
-.reject-button {
-    color: #A30000;
-}
-
-.follower-profilePic {
-  width: 50px;                
-  height: 50px;     
-  border: 2px solid #000000;    
-  border-radius: 50%;     
-  margin-right: 10px;   
-}
-
-.follower-picAndName {
-  width: 100%;
-  display: flex;
-  flex-direction: row;
-  margin: 5px;
-}
-
-.requests-title {
-  font-family: 'Fredoka', sans-serif;
-  display: flex;
-  align-items: center;
-  font-weight: 600;
-  font-size: large;
-  margin-bottom: 20px;
-  font-weight: bold;
-}
-
-.requests-title span {
-  margin-left: 8px;
-  color: #555;
-  font-size: medium;
+.requests-title + .follow-request-box {
+  border-top: none;
+  margin-top: 4px;
 }
 
 /* the requester's picture and name link to their profile */
 a.follower-picAndName {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 160px;
+  min-width: 0;
   color: inherit;
   text-decoration: none;
 }
@@ -103,3 +78,63 @@ a.follower-picAndName:hover .follower-name {
   text-decoration: underline;
 }
 
+.follower-profilePic {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 2px solid #000000;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.follower-text {
+  min-width: 0;
+}
+
+.follower-name {
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.follower-subtitle {
+  font-size: 0.85em;
+  color: #777;
+}
+
+.btns {
+  display: flex;
+  gap: 8px;
+  flex: 1 1 auto;
+  justify-content: flex-end;
+}
+
+.accept-button,
+.reject-button {
+  flex: 1 1 0;
+  max-width: 120px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 2px solid #212529;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.accept-button {
+  background-color: #212529;
+  color: #fff;
+}
+.accept-button:hover {
+  background-color: #2E3D34;
+}
+
+.reject-button {
+  background-color: transparent;
+  color: #212529;
+}
+.reject-button:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+}

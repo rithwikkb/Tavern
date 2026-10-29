@@ -4,16 +4,13 @@
   height: 100vh;
 }
 
+/* follow requests sit in a fixed column to the right of the feed on wide screens */
 .follow-request-container {
-  min-width: 14em;
-  width: auto;
-  padding: 20px;
+  width: 15rem;
   position: fixed;
   right: 0;
   top: 0;
-  bottom: 0;
-  margin: 20px 40px 20px 20px;
-  border-radius: 20px;
+  margin: 40px 24px 0 0;
 }
 
 .home-container {
@@ -38,6 +35,13 @@
   font-style: normal;
   font-weight: 400;
   font-size: 20px;
+}
+/* search bar lines up with the post cards; results are positioned against it */
+.search-area {
+  position: relative;
+  width: 100%;
+  max-width: 620px;
+  box-sizing: border-box;
 }
 .posts-container {
   display: flex;
@@ -68,6 +72,7 @@
   .follow-request-container {
     position: static;
     min-width: 0;
+    width: 100%;
     max-width: 620px;
     margin: 20px 0 0 0;
     padding: 0;

@@ -15,6 +15,28 @@ const Home = () => {
   const [error, setError] = useState(null);
   const [results, setResults] = useState([]);
   const hasRun = useRef(false);
+  const searchArea = useRef(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  // close the search results when clicking elsewhere or pressing Escape
+  useEffect(() => {
+    const handleClick = (event) => {
+      if (searchArea.current && !searchArea.current.contains(event.target)) {
+        setSearchOpen(false);
+      }
+    };
+    const handleKey = (event) => {
+      if (event.key === 'Escape') {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, []);
 
   useEffect(() => {
     if (hasRun.current) {
@@ -60,8 +82,16 @@ const Home = () => {
     <div className="home-page-container">
       <div className="home-container">
         <h1>Feed</h1>
-        <SearchBar setResults={setResults} />
-        {results.length > 0 && <SearchResultsList results={results} />}
+        <div
+          className="search-area"
+          ref={searchArea}
+          onFocus={() => setSearchOpen(true)}
+          onClick={() => setSearchOpen(true)}
+          onInput={() => setSearchOpen(true)}
+        >
+          <SearchBar setResults={setResults} />
+          {searchOpen && results.length > 0 && <SearchResultsList results={results} />}
+        </div>
         <div className="posts-container">
           {posts.length > 0 ? (
             <ul>

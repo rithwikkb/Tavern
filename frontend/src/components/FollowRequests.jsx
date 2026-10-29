@@ -1,5 +1,5 @@
 import "../styles/components/FollowRequests.css";
-import { Check, Clear } from "@mui/icons-material";
+import { ExpandMore } from "@mui/icons-material";
 import { Link } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 import { transformFollowData } from "../utils/transformer";
@@ -7,17 +7,14 @@ import { getFollowRequests } from '../services/FollowService';
 import { acceptFollowRequest, rejectFollowRequest } from '../services/FollowService';
 import Cookies from 'js-cookie';
 import unknownUser from  '../assets/followerUserUnknown.png';
-import dropdownIcon from '../assets/Dropdown.png';
 
 const FollowRequests = () => {
     const [followRequests, setFollowRequests] = useState([]);
     const authorId = Cookies.get('author_id');
     const [isRequestsVisible, setIsRequestsVisible] = useState(true);
-    const [isDropdownRotated, setIsDropdownRotated] = useState(false);
 
     const handleToggleRequests = () => {
         setIsRequestsVisible((prev) => !prev);
-        setIsDropdownRotated((prev) => !prev);
     };
 
     // Function to extract only the UUID from a full URL
@@ -64,40 +61,50 @@ const FollowRequests = () => {
     };
 
     return (
-        <div className="FollowRequest-container">
-        <div className="requests-title">
-            {`Follow Requests (${followRequests.length})`}
-            <img
-                src={dropdownIcon}
-                alt="Dropdown"
-                className={`dropdown-icon ${isDropdownRotated ? 'rotated' : ''}`}
+        <section className="FollowRequest-container" aria-labelledby="follow-requests-title">
+            <button
+                type="button"
+                className="requests-title"
                 onClick={handleToggleRequests}
-            />
-        </div>
-        {isRequestsVisible && followRequests.map((followRequest, index) => (
-                <div key={index} className="follow-request-box">
-                    <Link
-                        className="follower-picAndName"
-                        to={`/profile/${followRequest.actor.id.replace(/\/$/, '').split('/').pop()}`}
-                    >
-                        <img
-                            className="follower-profilePic"
-                            src={followRequest.actor.profileImage || unknownUser} 
-                            alt="" 
-                        />
-                        <div className="follower-name">{followRequest.actor.displayName}</div>
-                    </Link>
-                    <div className="btns">
-                        <button className="reject-button" onClick={() => handleReject(followRequest.actor.id)}>
-                            <Clear className="icon" />
-                        </button>
-                        <button className="accept-button" onClick={() => handleAccept(followRequest.actor.id)}>
-                            <Check className="icon" />
-                        </button>
-                    </div>
-                </div>
-            ))}
-        </div>
+                aria-expanded={isRequestsVisible}
+            >
+                <span id="follow-requests-title">Follow requests</span>
+                {followRequests.length > 0 && <span className="requests-count">{followRequests.length}</span>}
+                <ExpandMore className={`requests-chevron ${isRequestsVisible ? '' : 'collapsed'}`} />
+            </button>
+            {isRequestsVisible && (
+                followRequests.length === 0 ? (
+                    <p className="requests-empty">No pending requests</p>
+                ) : (
+                    followRequests.map((followRequest) => (
+                        <div key={followRequest.actor.id} className="follow-request-box">
+                            <Link
+                                className="follower-picAndName"
+                                to={`/profile/${followRequest.actor.id.replace(/\/$/, '').split('/').pop()}`}
+                            >
+                                <img
+                                    className="follower-profilePic"
+                                    src={followRequest.actor.profileImage || unknownUser}
+                                    alt=""
+                                />
+                                <div className="follower-text">
+                                    <div className="follower-name">{followRequest.actor.displayName}</div>
+                                    <div className="follower-subtitle">wants to follow you</div>
+                                </div>
+                            </Link>
+                            <div className="btns">
+                                <button className="accept-button" onClick={() => handleAccept(followRequest.actor.id)}>
+                                    Accept
+                                </button>
+                                <button className="reject-button" onClick={() => handleReject(followRequest.actor.id)}>
+                                    Decline
+                                </button>
+                            </div>
+                        </div>
+                    ))
+                )
+            )}
+        </section>
     );
 };
 
