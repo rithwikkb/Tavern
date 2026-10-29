@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PageLoader from '../components/PageLoader';
 import { getAuthorProfile } from '../services/profileService';
 import { getAuthor } from '../services/AuthorsService';
 import FollowButton from '../components/FollowButton';
@@ -6,6 +7,7 @@ import '../styles/pages/Profile.css';
 import Cookies from 'js-cookie';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import PostBox from '../components/PostBox';
+import NotFound from './NotFound';
 import { getFollowers } from '../services/FollowDetailService';
 import { getFriends } from '../services/FriendsDetailService';
 import { getFollowing } from '../services/FollowingDetailService';
@@ -19,6 +21,7 @@ const Profile = () => {
   const [linkCopied, setLinkCopied] = useState(false);
   const [currentProfileData, setcurrentProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [profileNotFound, setProfileNotFound] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalData, setModalData] = useState([]);
   const [modalTitle, setModalTitle] = useState(''); // To display the title dynamically
@@ -29,27 +32,29 @@ const Profile = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // only the profile request decides when loading is done; the smaller author request
+  // finishing first used to flash "Error loading profile data"
   useEffect(() => {
+    setLoading(true);
+    setProfileNotFound(false);
     getAuthorProfile(authorId)
       .then((data) => {
         setProfileData(data);
-        setLoading(false);
       })
       .catch((err) => {
         console.error(err);
-        setLoading(false);
-      });
+        setProfileNotFound(err.response?.status === 404);
+      })
+      .finally(() => setLoading(false));
   }, [authorId]);
   
   useEffect(() => {
     getAuthor(authorId)
     .then((data) => {
       setAuthorProfileData(data);
-      setLoading(false);
     })
     .catch((err) => {
       console.error(err);
-      setLoading(false);
     });
   }, [authorId]);
 
@@ -116,11 +121,15 @@ const Profile = () => {
   };
 
   if (loading) {
-    return <p>Loading...</p>;
+    return <PageLoader />;
+  }
+
+  if (profileNotFound) {
+    return <NotFound />;
   }
 
   if (!profileData) {
-    return <p>Error loading profile data.</p>;
+    return <p>Couldn't load this profile. Please try again.</p>;
   }
 
   const isCurrentUser = currentUserId === authorId;

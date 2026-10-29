@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PageLoader from '../components/PageLoader';
 import { useParams } from 'react-router-dom';
 import api from '../services/axios';
 import { getAuthorProfile } from '../services/profileService';
@@ -37,7 +38,7 @@ const PostDetail = () => {
   }, [postId]);
 
   if (loading) {
-    return <p>Loading...</p>;
+    return <PageLoader />;
   }
 
   if (error) {

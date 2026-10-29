@@ -1,5 +1,6 @@
 import "../styles/components/FollowRequests.css";
 import { Check, Clear } from "@mui/icons-material";
+import { Link } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 import { transformFollowData } from "../utils/transformer";
 import { getFollowRequests } from '../services/FollowService';
@@ -75,14 +76,17 @@ const FollowRequests = () => {
         </div>
         {isRequestsVisible && followRequests.map((followRequest, index) => (
                 <div key={index} className="follow-request-box">
-                    <div className="follower-picAndName"> 
+                    <Link
+                        className="follower-picAndName"
+                        to={`/profile/${followRequest.actor.id.replace(/\/$/, '').split('/').pop()}`}
+                    >
                         <img
                             className="follower-profilePic"
                             src={followRequest.actor.profileImage || unknownUser} 
-                            alt="Img" 
+                            alt="" 
                         />
                         <div className="follower-name">{followRequest.actor.displayName}</div>
-                    </div>
+                    </Link>
                     <div className="btns">
                         <button className="reject-button" onClick={() => handleReject(followRequest.actor.id)}>
                             <Clear className="icon" />

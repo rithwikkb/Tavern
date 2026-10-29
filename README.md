@@ -23,7 +23,19 @@ Originally built as a team project for CMPUT 404 at the University of Alberta.
 Open the [live site](https://tavern-weyv.onrender.com) and use **Try the demo account** on the login page (username `demo`, password `TavernDemo2026`).
 The demo account is friends with a few sample people, has a follow request waiting, and its feed
 includes public, friends-only and unlisted posts with comments and likes. Its profile can't be
-edited since everyone shares it; sign up to get your own account.
+edited since everyone shares it; sign up to get your own account. Anything a visitor changes as
+the demo account is undone automatically the next time someone logs in as the demo (at most every
+10 minutes), so everyone starts from the same clean demo.
+
+## Screenshots
+
+| Home feed | Profile |
+|---|---|
+| ![Home feed with posts, follow requests and search](docs/screenshots/feed.jpg) | ![Profile page with stats and posts](docs/screenshots/profile.jpg) |
+
+| Login with one-click demo | On a phone |
+|---|---|
+| ![Login page with the demo account button](docs/screenshots/login.jpg) | <img src="docs/screenshots/mobile-feed.jpg" alt="Home feed on a phone" width="260"> |
 
 ## Tech stack
 

@@ -137,3 +137,11 @@
     width: 5em; 
     height: auto; 
   }
+
+.field-hint {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.6);
+  margin-top: 6px;
+}
+

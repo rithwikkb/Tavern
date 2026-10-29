@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom'; // Import Link from React Router
 import { getMarkdownText } from '../utils/getMarkdownText';
+import { fullDate, timeAgo } from '../utils/timeAgo';
 import { getPostImageUrl, getPost } from '../services/PostsService';
 import { getAuthorProfile } from '../services/profileService';
 import '../styles/components/PostBox.css';
@@ -116,7 +117,7 @@ const PostBox = ({ post, poster, isUserEditable }) => {
       {originalPost && (
         <div className="poster-author-header">
           <p>Reposted By: {poster.displayName}</p>
-          <p>{new Date(post.published).toLocaleString()}</p>
+          <p title={fullDate(post.published)}>{timeAgo(post.published)}</p>
         </div>
       )}
       <div className="post-header">
@@ -145,8 +146,10 @@ const PostBox = ({ post, poster, isUserEditable }) => {
           </div>
         </Link>
         <div className="poster-name-date">
-          <h4>{posterName}</h4>
-          <p>{new Date(postPublishedDate).toLocaleString()}</p>
+          <Link to={`/profile/${post.author.id.split('/')[5]}`} className="poster-name-link">
+            <h4>{posterName}</h4>
+          </Link>
+          <p title={fullDate(postPublishedDate)}>{timeAgo(postPublishedDate)}</p>
         </div>
         {isUserEditable && post.visibility !== 'SHARED' && (
           <div className="post-edit">

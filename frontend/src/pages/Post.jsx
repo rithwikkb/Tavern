@@ -1,4 +1,5 @@
 // https://bbbootstrap.com/snippets/delete-button-hover-effect-68431542
+import PageLoader from '../components/PageLoader';
 import React, { useState, useRef, useEffect } from 'react';
 import '../styles/pages/Post.css';
 import { ReactComponent as ImageUploader } from './../assets/imageUploader.svg';
@@ -262,7 +263,7 @@ const Post = () => {
   //#endregion
 
   if (loading) {
-    return <p>Loading...</p>; // Display a loading state while the post data is being fetched
+    return <PageLoader />; // Display a loading state while the post data is being fetched
   }
 
   //#region Render

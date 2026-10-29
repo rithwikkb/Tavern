@@ -1,0 +1,13 @@
+/* fills the content area so the spinner sits in the middle, not the top-left corner */
+.page-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 75vh;
+}
+
+/* smaller version used inside modals and cards */
+.page-loader-inline {
+  min-height: 80px;
+}

@@ -1,0 +1,29 @@
+.not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  min-height: 60vh;
+  font-family: 'Fredoka', sans-serif;
+}
+
+.not-found p {
+  color: rgba(0, 0, 0, 0.7);
+  margin: 0 0 20px 0;
+}
+
+.not-found-home {
+  background-color: #212529;
+  color: #fff;
+  border-radius: 30px;
+  padding: 10px 24px;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.not-found-home:hover {
+  background-color: #d3ba46;
+  color: #292821;
+}

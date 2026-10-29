@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PageLoader from '../components/PageLoader';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getAuthorProfile, updateAuthorProfile, uploadProfileImage } from '../services/editProfileService';
 import '../styles/pages/EditProfile.css';
@@ -97,7 +98,7 @@ const EditProfile = () => {
     };
 
     if (loading) {
-        return <div>Loading...</div>;
+        return <PageLoader />;
     }
 
     return (

@@ -66,7 +66,7 @@ export const makeGithubActivityPosts = async (authorId) => {
     for (let i = 0; i < stringifiedData.length; i++) {
       const postData = new FormData();
       postData.append('author', author);
-      postData.append('title', 'Github Activity');
+      postData.append('title', 'GitHub activity');
       postData.append('content', stringifiedData[i]);
       postData.append('contentType', 'text/plain');
       postData.append('visibility', 'PUBLIC');

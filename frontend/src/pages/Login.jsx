@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import Cookies from 'js-cookie';
+import { setAuthCookies } from '../utils/authCookies';
 import '../styles/pages/Login.css';
 import { login } from '../services/loginservice';
 import { useNavigate } from 'react-router-dom';
@@ -32,9 +32,7 @@ const Login = () => {
       }
       const { refresh_token, access_token, author_id } = response;
 
-      Cookies.set('author_id', author_id); 
-      Cookies.set('access_token', access_token);
-      Cookies.set('refresh_token', refresh_token);
+      setAuthCookies({ authorId: author_id, accessToken: access_token, refreshToken: refresh_token });
 
       navigate('/');
     } catch (error) {
@@ -64,6 +62,21 @@ const Login = () => {
         <img className= "image-log" src={ LogInImg } alt="LogIn image" />
       </div>
       <div className="login-container">
+        <div className="login-intro">
+          <p>
+            <strong>Tavern</strong> is a small social network: share posts in plain text, Markdown or
+            images, follow people, become friends, and comment on and like each other's posts.
+          </p>
+          <p className="login-intro-links">
+            <a href="https://github.com/rithwikkb/Tavern_WebApp" target="_blank" rel="noopener noreferrer">
+              Code on GitHub
+            </a>
+            <span aria-hidden="true"> · </span>
+            <a href="/swagger/" target="_blank" rel="noopener noreferrer">
+              API docs
+            </a>
+          </p>
+        </div>
         <h1 className="login-title">Log In</h1>
         {error && <div className="error-message" role="alert">{error}</div>}
         <form className="form-container" onSubmit={handleSubmit} method="post">

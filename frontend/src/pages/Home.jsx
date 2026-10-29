@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import PageLoader from '../components/PageLoader';
 import '../styles/pages/Home.css';
 import FollowRequests from '../components/FollowRequests';
 import SearchBar from '../components/SearchBar';
@@ -102,7 +103,7 @@ const Home = () => {
   }, []);
 
   if (loading) {
-    return <p>Loading...</p>;
+    return <PageLoader />;
   }
 
   if (error) {

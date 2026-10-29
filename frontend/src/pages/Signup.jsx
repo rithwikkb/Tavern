@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import Cookies from 'js-cookie';
+import { setAuthCookies } from '../utils/authCookies';
 import { signup } from '../services/signupservice';
 import { login } from '../services/loginservice';
 import { useNavigate } from 'react-router-dom';
@@ -93,9 +93,7 @@ const Signup = () => {
         username: formData.username,
         password: formData.password,
       });
-      Cookies.set('author_id', author_id);
-      Cookies.set('access_token', access_token);
-      Cookies.set('refresh_token', refresh_token);
+      setAuthCookies({ authorId: author_id, accessToken: access_token, refreshToken: refresh_token });
       navigate('/');
     } catch (err) {
       // account was created but auto-login failed; let them log in manually
@@ -139,6 +137,9 @@ const Signup = () => {
                 onChange={handleChange}
                 required
               />
+              <small className="field-hint">
+                At least 8 characters, not all numbers, and not a common password.
+              </small>
             </div>
           </div>
           <div className='form-signup'>

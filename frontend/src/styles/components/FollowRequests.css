@@ -93,3 +93,13 @@
   color: #555;
   font-size: medium;
 }
+
+/* the requester's picture and name link to their profile */
+a.follower-picAndName {
+  color: inherit;
+  text-decoration: none;
+}
+a.follower-picAndName:hover .follower-name {
+  text-decoration: underline;
+}
+

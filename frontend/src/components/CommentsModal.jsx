@@ -1,4 +1,5 @@
 // Import necessary libraries and components
+import PageLoader from './PageLoader';
 import React, { useState, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import { Comment } from '@mui/icons-material';
@@ -96,7 +97,7 @@ const CommentsModal = ({ postId, initialCount }) => {
           </Typography>
           <div className="comments-container">
             {!commentsLoaded ? (
-              <Typography variant="body1">Loading comments...</Typography>
+              <PageLoader inline size={28} delay={150} />
             ) : comments.length > 0 ? (
               comments.map((comment, index) => (
                 <div key={index} className="comment-box">

@@ -8,6 +8,7 @@ import EditProfile from '../pages/EditProfile';
 import Signup from '../pages/Signup';
 import Login from '../pages/Login';
 import PostDetail from '../pages/PostDetail';
+import NotFound from '../pages/NotFound';
 import ProtectedRoute from './ProtectedRoute';
 
 const AppRoutes = () => {
@@ -81,6 +82,9 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
+
+      {/* anything else: a friendly "not found" page instead of an empty screen */}
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 };

@@ -166,3 +166,23 @@
   margin: 8px 0 0 0;
 }
 
+/* short "what is this" blurb above the login form */
+.login-intro {
+  max-width: 24em;
+  text-align: center;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 15px;
+  color: rgba(0, 0, 0, 0.7);
+  margin-bottom: 8px;
+}
+
+.login-intro p {
+  margin: 0 0 8px 0;
+}
+
+.login-intro-links a {
+  color: #000;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
