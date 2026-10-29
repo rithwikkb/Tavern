@@ -1,5 +1,9 @@
 # Tavern
 
+**Live demo: [tavern-weyv.onrender.com](https://tavern-weyv.onrender.com)**: click **Try the demo account** on the login page.
+
+> Hosted on a free plan, so the first visit after a quiet period can take up to a minute while the server wakes up.
+
 A social networking web app where authors can post (plain text, Markdown, or images), follow each other, become friends, and comment on and like posts. Built with Django REST Framework and React.
 
 Originally built as a team project for CMPUT 404 at the University of Alberta.
@@ -16,7 +20,7 @@ Originally built as a team project for CMPUT 404 at the University of Alberta.
 
 ## Try it
 
-Use **Try the demo account** on the login page (username `demo`, password `TavernDemo2026`).
+Open the [live site](https://tavern-weyv.onrender.com) and use **Try the demo account** on the login page (username `demo`, password `TavernDemo2026`).
 The demo account is friends with a few sample people, has a follow request waiting, and its feed
 includes public, friends-only and unlisted posts with comments and likes. Its profile can't be
 edited since everyone shares it; sign up to get your own account.
@@ -53,7 +57,7 @@ Run the backend tests with `python manage.py test` from `mistyrose/`.
 
 ## Deploying
 
-The repo includes a `render.yaml` blueprint and a `build.sh` script. See `.env.example` for every environment variable the app reads. At minimum, production needs `DJANGO_SECRET_KEY` and a `DATABASE_URL` pointing at a hosted Postgres database.
+The live site runs on Render's free plan with a Neon Postgres database. The repo includes a `render.yaml` blueprint and a `build.sh` script. See `.env.example` for every environment variable the app reads. At minimum, production needs `DJANGO_SECRET_KEY` and a `DATABASE_URL` pointing at a hosted Postgres database.
 
 ## Team
 
