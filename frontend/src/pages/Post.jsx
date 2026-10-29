@@ -6,9 +6,8 @@ import { ReactComponent as ImageUploader } from './../assets/imageUploader.svg';
 import MarkdownEditor from '../components/MarkdownEditor';
 import { createPost, getPost, updatePost } from '../services/PostsService';
 import { prepareImageForPost } from '../utils/prepareImage';
-import { getAuthor } from '../services/AuthorsService';
 import Cookies from 'js-cookie';
-import { useParams, useLocation, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 
 const Post = () => {
   //#region Properties
@@ -17,143 +16,49 @@ const Post = () => {
   const navigate = useNavigate();
   const [visibility, setVisibility] = useState('public');
   const [selectedOption, setSelectedOption] = useState('Plain');
-  const [profileData, setProfileData] = useState(null);
 
   const options = ['Plain', 'Markdown', 'Image'];
   const [title, setTitle] = useState('');
   const [uploadedImage, setUploadedImage] = useState(null);
   const [imgFile, setImgFile] = useState(null);
+  // when editing an image post, its current image (kept unless a new one is chosen)
+  const [existingImage, setExistingImage] = useState(null);
   const fileInputUpload = useRef(null);
   const [plainText, setPlainText] = useState('');
   const [markdown, setMarkdown] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [currentProfileData, setCurrentProfileData] = useState(null);
+  const [loading, setLoading] = useState(Boolean(postId));
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-
-  // For sharing
-  const location = useLocation();
-  const sharePost = location.pathname.includes('/share');
-  const sharedPostAuthor = location.state?.authorId;
-  const currentHost = window.location.origin; // Get host for post URL
-
-  useEffect(() => {
-    if (!postId) {
-      setUploadedImage(null);
-    }
-  }, [postId]);
-  
-  // Fetch current author profile on component mount
-  useEffect(() => {
-    getAuthor(authorId)
-      .then((data) => {
-        setCurrentProfileData(data);
-      })
-      .catch((error) => {
-        console.error(error);
-      });
-  }, []); // Empty dependency list to run only once
-
-  // Fetch the shared post author's profile data
-  useEffect(() => {
-    if (sharedPostAuthor) {
-      getAuthor(sharedPostAuthor)
-        .then((data) => {
-          console.log('Author profile data:', data);
-          setProfileData(data);
-        })
-        .catch((error) => {
-          console.error('Error fetching author profile:', error);
-        });
-    }
-  }, [sharedPostAuthor, sharePost]);
-
   //#endregion
 
   //#region Fetch Post Data (for editing)
   useEffect(() => {
-    if (postId && !sharePost) {
-      getPost(authorId, postId)
-        .then((response) => {
-          const post = response.data;
-          setTitle(post.title || '');
-          console.log('here', post)
-          if (post.contentType === 'text/markdown') {
-            setMarkdown(post.content || ''); // Set the markdown content
-            setSelectedOption('Markdown'); // Set the editor mode to Markdown
-          } else if ((post.contentType === 'text/plain')) {
-            setPlainText(post.content || ''); // Set plain text content
-            setSelectedOption('Plain'); // Set the editor mode to Plain
-          } else {
-            // console.log('Image!')
-            if (post.contentType.startsWith('image/')) {
-              setUploadedImage(post.contentType.includes('base64') ? post.content : `${currentHost}${post.content}`);
-              setSelectedOption('Image');
-            }
-          }
-          setVisibility(post.visibility.toLowerCase());
-          setLoading(false);
-        })
-        .catch((error) => {
-          console.error('Error fetching post:', error);
-          setLoading(false);
-        });
-    } else if (sharePost) {
-      getPost(sharedPostAuthor, postId)
-        .then((response) => {
-          const post = response.data;
-          const displayName = profileData?.displayName || 'Unknown Author';
-          const publishedDate = new Date(post.published).toLocaleString();
-
-          setVisibility(post.visibility.toLowerCase());
-
-          if (post.content_type.startsWith('image/')) {
-            setSelectedOption('Image');
-            // images are stored as base64 strings
-            setUploadedImage(post.content);
-            const creditsContent = `Author: ${displayName} (Published on: ${publishedDate}) \n\n Title: ${post.title || 'No Title Available'} \n\n${post.content || 'No Content Available'}`;
-            setTitle(
-              `Title: ${post.title || 'No Title Available'} \n\n ${creditsContent}`
-            );
-            // Fetch the image blob
-            fetch(`${currentHost}${post.content}`)
-              .then((response) => {
-                if (response.ok) {
-                  return response.blob();
-                }
-                throw new Error('Network response was not ok.');
-              })
-              .then((blob) => {
-                const file = new File(
-                  [blob],
-                  post.content,
-                  { type: blob.type }
-                );
-                setImgFile(file); // Set the imgFile state to the file object
-              })
-              .catch((error) => {
-                console.error('Error fetching the image file:', error);
-              });
-          } else if (post.content_type === 'text/markdown') {
-            const creditsContent = `Author: ${displayName} (Published on: ${publishedDate}) \n\n Title: ${post.title || 'No Title Available'} \n\n${post.content || 'No Content Available'}`;
-            setMarkdown(creditsContent);
-            setSelectedOption('Markdown');
-          } else {
-            const creditsContent = `Author: ${displayName} (Published on: ${publishedDate}) \n\n Title: ${post.title || 'No Title Available'} \n\n${post.content || 'No Content Available'}`;
-            setPlainText(creditsContent);
-            setSelectedOption('Image'); // Set the editor mode to Plain
-          }
-
-          setLoading(false); // Set loading to false after processing
-        })
-        .catch((error) => {
-          console.error('Error sharing post:', error);
-          setLoading(false);
-        });
-    } else {
-      setLoading(false);
+    if (!postId) {
+      return;
     }
-  }, [postId, authorId, sharePost, sharedPostAuthor, profileData?.displayName, currentHost]);
+    getPost(authorId, postId)
+      .then((response) => {
+        const post = response.data;
+        setTitle(post.title || '');
+        if (post.contentType === 'text/markdown') {
+          setMarkdown(post.content || '');
+          setSelectedOption('Markdown');
+        } else if (post.contentType?.startsWith('image/')) {
+          setExistingImage({ content: post.content, contentType: post.contentType });
+          setUploadedImage(post.content.startsWith('data:') ? post.content : `data:${post.contentType},${post.content}`);
+          setSelectedOption('Image');
+        } else {
+          setPlainText(post.content || '');
+          setSelectedOption('Plain');
+        }
+        setVisibility(post.visibility.toLowerCase());
+      })
+      .catch((error) => {
+        console.error('Error fetching post:', error);
+        setError("Couldn't load this post.");
+      })
+      .finally(() => setLoading(false));
+  }, [postId, authorId]);
   //#endregion
 
   //#region Event Handlers
@@ -184,7 +89,6 @@ const Post = () => {
     setError('');
     const postData = {
       type: 'post',
-      author: currentProfileData,
       title: title || 'New Post',
       visibility: visibility.toUpperCase(),
     };
@@ -195,7 +99,7 @@ const Post = () => {
       postData.content = markdown;
       postData.contentType = 'text/markdown';
     } else if (selectedOption === 'Image') {
-      if (!imgFile) {
+      if (!imgFile && !existingImage) {
         setError('Choose an image to post.');
         return;
       }
@@ -204,16 +108,13 @@ const Post = () => {
     setSubmitting(true);
     try {
       if (selectedOption === 'Image') {
-        // shrink large photos so they fit within the server's upload limit
-        const { content, contentType } = await prepareImageForPost(imgFile);
+        // a newly chosen image is shrunk to fit the upload limit; otherwise keep the current one
+        const { content, contentType } = imgFile ? await prepareImageForPost(imgFile) : existingImage;
         postData.content = content;
         postData.contentType = contentType;
       }
 
-      if (sharePost) {
-        // Create a new post when sharing
-        await createPost(authorId, postData);
-      } else if (postId) {
+      if (postId) {
         const currentDateTime = new Date().toISOString();
         postData.published = currentDateTime;
         // Update post if postId exists
@@ -259,40 +160,32 @@ const Post = () => {
   };
   //#endregion
 
-  //#region Functions
-  //#endregion
-
   if (loading) {
     return <PageLoader />; // Display a loading state while the post data is being fetched
   }
 
   //#region Render
   const renderOption = (option) => (
-    <h3
+    <button
+      type="button"
       key={option}
-      className={
-        selectedOption === option ? 'active-option' : 'inactive-option'
-      }
+      role="tab"
+      aria-selected={selectedOption === option}
+      className={selectedOption === option ? 'post-type-tab active' : 'post-type-tab'}
       onClick={() => handleOptionClick(option)}
     >
       {option}
-    </h3>
+    </button>
   );
   //#endregion
 
   return (
     <div className="posts-page">
       <div className="top-container">
-        <h1>{sharePost ? 'Share' : postId ? 'Edit' : 'Create'} Post</h1>
-        <div className={'posts-options'}>{options.map(renderOption)}</div>
+        <h1>{postId ? 'Edit' : 'Create'} Post</h1>
+        <div className="posts-options" role="tablist" aria-label="Post type">{options.map(renderOption)}</div>
       </div>
 
-      {/* <textarea
-        id="title-textarea"
-        placeholder="Title"
-        value={title}
-        onChange={(event) => setTitle(event.target.value)}
-      ></textarea> */}
       <input
         type="text"
         id="title-input"
@@ -312,7 +205,7 @@ const Post = () => {
           ) : (
             <>
               <ImageUploader className="image-uploader-svg" />
-              <p id="image-selection-hint">Click to upload an image</p>
+              <p id="image-selection-hint">Click to choose an image</p>
             </>
           )}
           <input
@@ -320,8 +213,6 @@ const Post = () => {
             ref={fileInputUpload}
             style={{ display: 'none' }}
             onChange={handleFileChange}
-            readOnly={sharePost}
-            disabled={sharePost}
           />
         </div>
       ) : selectedOption === 'Plain' ? (
@@ -330,18 +221,15 @@ const Post = () => {
           placeholder="Type something here..."
           value={plainText}
           onChange={handlePlainTextChange}
-          readOnly={sharePost}
-          disabled={sharePost}
         ></textarea>
       ) : (
         <MarkdownEditor
           markdown={markdown}
           setMarkdown={setMarkdown}
-          readOnly={sharePost}
-          disabled={sharePost}
         />
       )}
 
+      <p className="visibility-heading">Who can see this?</p>
       <div className="visibility-options">
         <label className="radio-button">
           <input
@@ -378,12 +266,10 @@ const Post = () => {
       {error && <div className="post-error" role="alert">{error}</div>}
       <div className="postPage-buttons">
         <button className="post-button" onClick={handlePostClick} disabled={submitting}>
-          {submitting ? 'Posting...' : 'Post'}
+          {/* editing an existing post saves it; anything else publishes a new one */}
+          {submitting ? (postId ? 'Saving...' : 'Posting...') : (postId ? 'Save' : 'Post')}
         </button>
         {postId && (
-          // <button className="delete-button" onClick={handleDeleteClick}>
-          //   Delete
-          // </button>
           <button className="delete-button" onClick={handleDeleteClick}>
             <span className="text">Delete</span>
             <span className="icon">

@@ -18,3 +18,23 @@
     text-align: center;
     padding-bottom: 15px;
 }
+
+/* size the people lists (followers, likes, ...) to their content instead of a fixed tall box */
+.modalBox.authors-modal {
+    height: auto;
+    min-height: 0;
+    max-height: 70vh;
+    width: 420px;
+    max-width: 92vw;
+}
+
+.authors-list-empty {
+    text-align: center;
+    color: rgba(0, 0, 0, 0.6);
+    padding: 12px 0;
+}
+
+.authors-list-container:empty {
+    display: none;
+}
+

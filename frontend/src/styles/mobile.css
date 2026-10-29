@@ -222,6 +222,21 @@
 
   .postPage-buttons {
     width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* full-width, stacked buttons on phones; Post stays on top */
+  .postPage-buttons .post-button,
+  .postPage-buttons .post-button:hover,
+  .postPage-buttons .delete-button {
+    width: 100%;
+    max-width: none;
+    margin-right: 0;
+  }
+
+  .postPage-buttons .delete-button {
+    order: 1;
   }
 
   .post-button,

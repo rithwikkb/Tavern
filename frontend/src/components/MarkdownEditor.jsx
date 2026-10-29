@@ -2,27 +2,29 @@ import React from 'react';
 import { getMarkdownText } from '../utils/getMarkdownText';
 import '../styles/components/MarkdownEditor.css';
 
-const MarkdownEditor = ({ markdown, setMarkdown, readOnly, disabled }) => {
+const MarkdownEditor = ({ markdown, setMarkdown }) => {
   const handleChange = (event) => {
     setMarkdown(event.target.value);
   };
 
   return (
     <div className="markdown-editor">
-      <textarea
-        id="markdown-textarea"
-        value={markdown}
-        onChange={handleChange}
-        rows={10}
-        style={{ width: '100%', fontSize: '16px' }}
-        placeholder="Type something here..."
-        readOnly={readOnly}  
-        disabled={disabled} 
-      />
-      <div
-        className="markdown-preview"
-        dangerouslySetInnerHTML={getMarkdownText(markdown)}
-      />
+      <div className="markdown-pane">
+        <label className="markdown-pane-label" htmlFor="markdown-textarea">Write</label>
+        <textarea
+          id="markdown-textarea"
+          value={markdown}
+          onChange={handleChange}
+          placeholder={'**Bold**, _italic_, # headings, - lists, [links](https://...)'}
+        />
+      </div>
+      <div className="markdown-pane">
+        <span className="markdown-pane-label">Preview</span>
+        <div
+          className="markdown-preview post-markdown"
+          dangerouslySetInnerHTML={getMarkdownText(markdown)}
+        />
+      </div>
     </div>
   );
 };

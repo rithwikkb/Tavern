@@ -91,15 +91,6 @@ export const getGithubActivityData = async (username) => {
 };
 
 export const getStringsFromParsedData = (parsedData, username) => {
-  // the main events that we will handle for now
-  // const eventTypes = [
-  //   "PushEvent",
-  //   "PullRequestEvent",
-  //   "IssuesEvent",
-  //   "CreateEvent",
-  //   "ForkEvent",
-  //   "PublicEvent",
-  // ]
 
   const stringifiedData = parsedData.map((event) => {
     let stringifiedEvent = `On ${event.date.toDateString()}, ${username} `;
@@ -146,18 +137,3 @@ export const getStringsFromParsedData = (parsedData, username) => {
 
   return stringifiedData;
 };
-
-// TODO: handle these in future iterations
-// const relevantEventTypes = [
-//   'CommitCommentEvent',
-//   'DeleteEvent',
-//   'GollumEvent',
-//   'IssueCommentEvent',
-//   'MemberEvent',
-//   'PullRequestReviewEvent',
-//   'PullRequestReviewCommentEvent',
-//   'PullRequestReviewThreadEvent',
-//   'ReleaseEvent',
-//   'SponsorshipEvent',
-//   'WatchEvent'
-// ];

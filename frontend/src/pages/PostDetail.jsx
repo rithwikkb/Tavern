@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import PageLoader from '../components/PageLoader';
 import { useParams } from 'react-router-dom';
 import api from '../services/axios';
-import { getAuthorProfile } from '../services/profileService';
 import PostBox from '../components/PostBox';
+import '../styles/pages/PostDetail.css';
 
 const PostDetail = () => {
   const { postId } = useParams(); // Get postId from URL parameters
@@ -20,8 +20,8 @@ const PostDetail = () => {
         const response = await api.get(`posts/${postId}/`);
         const postData = response.data;
         setPost(postData);
-        const profile = await getAuthorProfile(postData.author.id.replace(/\/$/, '').split('/').pop());
-        setAuthor(profile);
+        // the post already includes its author's name and picture
+        setAuthor(postData.author);
       } catch (err) {
         console.error('Error fetching post detail:', err.message);
         setError(
@@ -42,15 +42,14 @@ const PostDetail = () => {
   }
 
   if (error) {
-    return <p>{error}</p>;
+    return <p className="post-detail-message">{error}</p>;
   }
 
   return (
-    <div>
+    <div className="post-detail-page">
       {post && author && (
         <PostBox post={post} poster={author} />
       )}
-      {/* You can add more components here like comments, likes, etc. */}
     </div>
   );
 };

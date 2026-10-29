@@ -1518,3 +1518,22 @@ class UnlikeTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(Like.objects.count(), 1)
 
+
+class SinglePostEndpointTest(APITestCase):
+    """The shared-post page gets the same post shape as the feed, including counts."""
+    def test_single_post_matches_feed_shape(self):
+        user = User.objects.create_user(username="sharer", password="pass")
+        author = Author.objects.create(display_name="Sharer", host="http://testserver", user=user)
+        post = Post.objects.create(author_id=author, title="shared", content="c", content_type="text/plain", visibility="PUBLIC")
+        ct = ContentType.objects.get_for_model(Post)
+        Like.objects.create(author_id=author, object_id=post.id, content_type=ct, object_url=post.url)
+        Comment.objects.create(author_id=author, post_id=post, comment="hi")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {RefreshToken.for_user(user).access_token}")
+
+        data = self.client.get(f"/api/posts/{post.id}/").data
+        self.assertFalse(data["id"].endswith("/"))
+        self.assertEqual(data["likes_count"], 1)
+        self.assertEqual(data["comments_count"], 1)
+        self.assertTrue(data["liked_by_me"])
+        self.assertEqual(data["author"]["displayName"], "Sharer")
+

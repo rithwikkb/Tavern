@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   MenuOutlined,
   CottageOutlined,
   AddOutlined,
   PersonOutlined,
-  SettingsOutlined,
   MeetingRoomOutlined,
 } from '@mui/icons-material';
 import '../styles/components/NavigationBar.css';
@@ -21,7 +20,6 @@ const NavigationBar = ({ expanded, onToggleExpanded }) => {
     ['Home', <CottageOutlined fontSize="inherit" />, '/'],
     ['Post', <AddOutlined fontSize="inherit" />, '/post'],
     ['Profile', <PersonOutlined fontSize="inherit" />, `/profile/${authorId}`],
-    // ['Settings', <SettingsOutlined fontSize="inherit" />, '/settings'],
   ];
   const location = useLocation();
   //#endregion

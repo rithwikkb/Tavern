@@ -184,15 +184,8 @@ const Home = () => {
           {filteredPosts.length > 0 ? (
             <ul>
               {filteredPosts.map((post) => {
-                // Find authorized authors for the post
-                const postAuthorization = authorizedAuthors.find(
-                  (auth) => auth.post_id === post.id
-                );
-                const authorizedAuthorsForPost =
-                  postAuthorization?.authorized_authors || [];
                 return (
                   <li key={post.id}>
-                    {/* Temporarily removed the Link component */}
                     <div>
                       <PostBox
                         post={post}

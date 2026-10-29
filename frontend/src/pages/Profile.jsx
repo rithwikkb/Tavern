@@ -19,7 +19,6 @@ const Profile = () => {
   const currentUserId = Cookies.get('author_id');
   const [profileData, setProfileData] = useState(null);
   const [linkCopied, setLinkCopied] = useState(false);
-  const [currentProfileData, setcurrentProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [profileNotFound, setProfileNotFound] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -65,17 +64,6 @@ const Profile = () => {
     setShowModal(false);
   };
 
-  // Close the modal when the route changes
-  useEffect(() => {
-    getAuthorProfile(currentUserId)
-      .then((data) => {
-        setcurrentProfileData(data);
-      })
-      .catch((error) => {
-        console.error(error);
-      });
-  }, []);
-
   useEffect(() => {
     getAuthor(currentUserId)
     .then((data) => {
@@ -84,7 +72,7 @@ const Profile = () => {
     .catch((error) => {
       console.error(error);
     });
-  }, []);
+  }, [currentUserId]);
 
   // Function to fetch followers and toggle the display
   const handleFollowersClick = async () => {
@@ -151,12 +139,6 @@ const Profile = () => {
   const hasGithub =
     /^https?:\/\//i.test(profileData.github || '') &&
     !/^https?:\/\/github\.com\/?$/.test(profileData.github);
-  const publicPosts = profileData.public_posts || [];
-  const friendsPosts = profileData.friends_posts || [];
-  const unlistedPosts = profileData.unlisted_posts || [];
-  const sharedPosts = profileData.shared_posts || [];
-  const UnlistedAndSharesPosts = [...unlistedPosts, ...sharedPosts];
-
   const filteredPosts =
   selectedFilter === 'Public'
     ? profileData.public_posts || []

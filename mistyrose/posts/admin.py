@@ -1,6 +1,5 @@
 from django.contrib import admin
 from .models import Post, Comment, Like
-from .models import Post, Like, Comment
 
 class PostAdmin(admin.ModelAdmin):
     #show url in django admin

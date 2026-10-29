@@ -46,10 +46,8 @@ export const checkIfFollowing = async (authorId, followerId) => {
     const response = await api.get(
       `authors/${authorId}/followers/${followerId}/`
     );
-    // console.log(`Response from checkIfFollowing:`, response);
     return response;
   } catch (error) {
-    // console.error(error);
     if (error.response && error.response.status === 404) {
       return { data: { status: 'Follow request not found' } };
     }

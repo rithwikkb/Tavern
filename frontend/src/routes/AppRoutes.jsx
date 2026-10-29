@@ -3,7 +3,6 @@ import { Route, Routes } from 'react-router-dom';
 import Home from '../pages/Home';
 import Post from '../pages/Post';
 import Profile from '../pages/Profile';
-import Settings from '../pages/Settings';
 import EditProfile from '../pages/EditProfile';
 import Signup from '../pages/Signup';
 import Login from '../pages/Login';
@@ -58,14 +57,6 @@ const AppRoutes = () => {
             <EditProfile />
           </ProtectedRoute>
         } />
-      <Route
-        path="/settings"
-        element={
-          <ProtectedRoute>
-            <Settings />
-          </ProtectedRoute>
-        }
-      />
       <Route
         path="/post/:postId/edit"
         element={

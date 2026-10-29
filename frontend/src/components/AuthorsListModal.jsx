@@ -1,6 +1,6 @@
 // https://mui.com/material-ui/react-modal/ for 'Basic Modal' code from MUI to show comments, 2024-10-31
 // https://mui.com/material-ui/react-list/ for List of Avatars, sections 'Align list items' and 'Selected ListItem', 2024-10-31
-import React, { useState } from 'react';
+import React from 'react';
 import Modal from '@mui/material/Modal';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -27,10 +27,13 @@ return (
         onClose={onModalClose} 
         aria-labelledby="authors-list-title"
     >
-        <Box className={'modalBox'}>
+        <Box className={'modalBox authors-modal'}>
             <Typography id="authors-modal-title" variant="h6" component="h2">
                 {title}
             </Typography>
+            {authors.length === 0 && (
+                <Typography className="authors-list-empty">No one here yet.</Typography>
+            )}
             <List className={'authors-list-container'}>
             {authors.map((author) => (
                 <ListItemButton key={author.id} className={'authors-list-item'} onClick={() => handleClickProfile(author)}>

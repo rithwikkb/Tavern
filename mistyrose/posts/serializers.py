@@ -1,9 +1,6 @@
 from users.serializers import AuthorSerializer
-from users.models import Author
 from rest_framework import serializers
 from .models import Post, Comment, Like
-import importlib
-from django.urls import reverse
 
 def with_post_relations(queryset):
     """
@@ -128,14 +125,6 @@ class PostSerializer(serializers.ModelSerializer):
         ]
 
        
-        # Method to get likes count for a post
-    def get_likes_count(self, post):
-        return Like.objects.filter(object_id=post.id).count()
-
-    # Method to get comments count for a post
-    def get_comments_count(self, post):
-        return Comment.objects.filter(post_id=post.id).count()
-    
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         
@@ -162,30 +151,5 @@ class PostSerializer(serializers.ModelSerializer):
     def get_id(self, post_object): #get is for turning into JSON response
         author_host = post_object.author_id.host.rstrip('/')
         return f"{author_host}/authors/{post_object.author_id.id}/posts/{post_object.id}"
-    
-#endregion
-    
-    # def get_author(self, like_object): #TODO: remove - this is temporary fix to circular dependency in AuthorSerializer importing PostSerializer
-    #     AuthorSerializer = get_author_serializer()
-    #     return AuthorSerializer(like_object.author_id).data
-
-# class LikesSerializer(serializers.Serializer): 
-#     type = serializers.CharField(default='likes', read_only=True)
-#     page = serializers.SerializerMethodField()
-#     id = serializers.SerializerMethodField()
-#     page_number = serializers.IntegerField(default=1)
-#     size = serializers.IntegerField()
-#     count = serializers.IntegerField()
-#     src = LikeSerializer(many=True)  # Use your existing LikeSerializer to serialize the likes
-
-#     def get_page(self, obj):
-#         # Construct the page URL; customize as needed
-#         return f"http://localhost/api/authors/{obj.author_id.id}/commented/{obj.id}/likes"
-
-#     def get_id(self, obj):
-#         author_host = obj.author_id.host.rstrip('/')
-#         http://{host}/api/authors/{author_serial}/posts/{post_id}/likes
-#         return f"{author_host}/api/authors/{obj.author_id.id}/posts/{like_object.id}/likes"
-#         return f"http://localhost/api/authors/{obj.author_id.id}/commented/{obj.id}/likes"
     
 #endregion

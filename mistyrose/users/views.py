@@ -1,11 +1,6 @@
 import logging
-from urllib.parse import urlparse
-from django.shortcuts import render
-import os
-from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status, generics
-from .models import Author 
 from .serializers import AuthorSerializer, AuthorEditProfileSerializer, LoginSerializer 
 from django.shortcuts import get_object_or_404  
 from rest_framework.views import APIView  
@@ -16,23 +11,18 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.authentication import JWTAuthentication  
 from django.contrib.auth.models import User  
 from django.db import transaction  
-from rest_framework.reverse import reverse 
-from .models import Author, Follows  
+from .models import Author, Follows
 from django.utils import timezone  
 from django.conf import settings  
 import uuid  
 from posts.models import Post  
-from django.middleware.csrf import get_token  
 from django.contrib.auth import authenticate  
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
-from django.http import HttpRequest
 from .pagination import AuthorsPagination  
 from posts.serializers import PostSerializer, with_post_relations
 from uuid import UUID 
-from urllib.parse import urlparse
-from rest_framework.exceptions import NotFound
 from rest_framework.throttling import ScopedRateThrottle
 import urllib.parse
 
@@ -258,10 +248,6 @@ class AuthorDetailView(generics.RetrieveAPIView):
             author = get_object_or_404(Author, id=pk)
 
         return author
-# class AuthorDetailView(generics.RetrieveAPIView):
-#     queryset = Author.objects.all()  # Specify the queryset of authors
-#     serializer_class = AuthorSerializer  # Use the AuthorSerializer for serialization
-#     lookup_field = 'pk'  # The lookup field used for retrieving a specific author is the primary key
 
 class AuthorProfileView(APIView):
     def get_friends_count(self, request, pk):
@@ -677,35 +663,3 @@ class ProfileImageUploadView(APIView):
         except Exception as e:
             print(f"ProfileImageUploadView - POST - Error: {str(e)}")
             return Response({"error": f"ProfileImageUploadView - POST - {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        
-        #     # Create a unique file path for saving the image based on the username
-        #     file_path = f'profiles/{username}/{file.name}'
-        #     full_path = os.path.join(settings.MEDIA_ROOT, file_path)
-
-        #     # Ensure the directory exists (create if necessary)
-        #     os.makedirs(os.path.dirname(full_path), exist_ok=True)
-
-        #     # Save the file to the media folder in chunks
-        #     with open(full_path, 'wb+') as destination:
-        #         for chunk in file.chunks():
-        #             destination.write(chunk)
-
-        #     # Construct the media URL for accessing the profile image via HTTP
-        #     base_url = self.get_base_url(request)
-        #     media_url = f'{base_url}{settings.MEDIA_URL}{file_path}'
-
-        #     # Return a success message along with the image URL
-        #     return Response({"message": "Profile image uploaded successfully", "url": media_url}, status=status.HTTP_200_OK)
-        
-        # except Exception as e:
-        #     # Handle any errors and return a server error response
-        #     return Response({"error": f"Failed to upload profile image: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    # def get_base_url(self, request: HttpRequest):
-    #     """
-    #     Generate the base URL (protocol + host) based on the request.
-    #     """
-    #     protocol = 'https' if request.is_secure() else 'http'
-    #     host = request.get_host()  # This gives the hostname and port (if not default)
-    #     return f'{protocol}://{host}'

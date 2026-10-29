@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import '../styles/pages/Signup.css';
 import SignUpImg from '../assets/signupImg.png';
 import appLogo from  '../assets/Logo.png'
+import ImagePicker from '../components/ImagePicker';
 
 const Signup = () => {
   const [formData, setFormData] = useState({
@@ -21,6 +22,7 @@ const Signup = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [imageUploading, setImageUploading] = useState(false); // State for tracking image upload
+  const [imageError, setImageError] = useState('');
   const navigate = useNavigate();
 
   // Handle form field changes
@@ -31,44 +33,36 @@ const Signup = () => {
     });
   };
 
-  // Handle image upload as soon as the user selects the image
-  const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
-    const username = formData.username; // Get the username
+  // Upload the picture as soon as it's chosen, so signup only has to send its URL
+  const handleImageUpload = async (file) => {
+    setImageUploading(true);
+    setImageError('');
 
-    if (file && username) {
-      setImageUploading(true);
+    const formDataToUpload = new FormData();
+    formDataToUpload.append('profile_image', file);
 
-      const formDataToUpload = new FormData();
-      formDataToUpload.append('profile_image', file);
-
-      try {
-        // Upload image to the server
-        const response = await fetch(
-          `${currentHost}/authors/${username}/upload_image/`,
-          {
-            method: 'POST',
-            body: formDataToUpload,
-          }
-        );
-
-        const result = await response.json();
-        if (response.ok) {
-          setFormData({
-            ...formData,
-            profileImage: result.url, // Store the image URL in the form data
-          });
-        } else {
-          setError(result.message || 'Image upload failed.');
+    try {
+      // the username in this URL isn't used for anything, so it doesn't need to be filled in yet
+      const response = await fetch(
+        `${currentHost}/authors/${encodeURIComponent(formData.username || 'new-user')}/upload_image/`,
+        {
+          method: 'POST',
+          body: formDataToUpload,
         }
-      } catch (err) {
-        console.error('Image upload error:', err);
-        setError('Image upload failed.');
-      } finally {
-        setImageUploading(false);
+      );
+
+      const result = await response.json();
+      if (response.ok) {
+        // functional update so fields typed during the upload aren't lost
+        setFormData((current) => ({ ...current, profileImage: result.url }));
+      } else {
+        setImageError(result.error || result.detail || 'Image upload failed.');
       }
-    } else {
-      setError('Please enter a username before uploading an image.');
+    } catch (err) {
+      console.error('Image upload error:', err);
+      setImageError('Image upload failed.');
+    } finally {
+      setImageUploading(false);
     }
   };
 
@@ -110,93 +104,106 @@ const Signup = () => {
     >
       <div className='signup-image'>
       <img className='logoSignup' src = { appLogo } alt='logo Img' />
-        <img className= "image-log" src={ SignUpImg } alt="Signup image" />
+        <img className= "image-log" src={ SignUpImg } alt="" />
       </div>
       <div className="signup-container">
-        <h1 className="login-title">Sign Up</h1>
+        <div className="signup-card">
+          <h1 className="login-title">Sign Up</h1>
+          <p className="signup-subtitle">Create an account to post, follow people and join the conversation.</p>
 
-        {error && <div className="error-message">{error}</div>}
-        <form className="form-container" onSubmit={handleSubmit}>
-          <div className='form-signup'>
-            <div className="form-group">
-              <label className="input-label">Name</label>
-              <input className='signup-inputLable'
-                type="text"
-                name="displayName"
-                value={formData.displayName}
-                onChange={handleChange}
-              />
+          {error && <div className="error-message" role="alert">{error}</div>}
+          <form className="signup-form" onSubmit={handleSubmit}>
+            <div className="signup-grid">
+              <div className="signup-field">
+                <label className="input-label" htmlFor="signup-display-name">Display name</label>
+                <input
+                  id="signup-display-name"
+                  type="text"
+                  name="displayName"
+                  autoComplete="name"
+                  value={formData.displayName}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className="signup-field">
+                <label className="input-label" htmlFor="signup-username">Username</label>
+                <input
+                  id="signup-username"
+                  type="text"
+                  name="username"
+                  autoComplete="username"
+                  value={formData.username}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className="signup-field">
+                <label className="input-label" htmlFor="signup-email">Email</label>
+                <input
+                  id="signup-email"
+                  type="email"
+                  name="email"
+                  autoComplete="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className="signup-field">
+                <label className="input-label" htmlFor="signup-password">Password</label>
+                <input
+                  id="signup-password"
+                  type="password"
+                  name="password"
+                  autoComplete="new-password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                />
+                <small className="field-hint">
+                  At least 8 characters, not all numbers, and not a common password.
+                </small>
+              </div>
+
+              <div className="signup-field">
+                <label className="input-label" htmlFor="signup-github">
+                  GitHub link <span className="optional-tag">optional</span>
+                </label>
+                <input
+                  id="signup-github"
+                  type="url"
+                  name="github"
+                  placeholder="https://github.com/you"
+                  value={formData.github}
+                  onChange={handleChange}
+                />
+              </div>
+
+              <div className="signup-field">
+                <span className="input-label">
+                  Profile picture <span className="optional-tag">optional</span>
+                </span>
+                <ImagePicker
+                  imageUrl={formData.profileImage}
+                  uploading={imageUploading}
+                  error={imageError}
+                  onFileSelected={handleImageUpload}
+                />
+              </div>
             </div>
 
-            <div className="form-group">
-              <label className="input-label">Password</label>
-              <input className='signup-inputLable'
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                required
-              />
-              <small className="field-hint">
-                At least 8 characters, not all numbers, and not a common password.
-              </small>
-            </div>
+            <button className="login-button signup-submit" type="submit" disabled={loading || imageUploading}>
+              {loading ? 'Signing up...' : 'Sign Up'}
+            </button>
+          </form>
+          <div className="signup-link">
+            Have an account?{' '}
+            <span onClick={() => navigate('/login')}>Log In</span>
           </div>
-          <div className='form-signup'>
-            <div className="form-group">
-              <label className="input-label">Username</label>
-              <input className='signup-inputLable'
-                type="text"
-                name="username"
-                value={formData.username}
-                onChange={handleChange}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="input-label">Email</label>
-              <input className='signup-inputLable'
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-              />
-            </div>
-          </div>
-          <div className='form-signup'>
-            <div className="form-group">
-              <label className="input-label">GitHub</label>
-              <input className='signup-inputLable'
-                type="text"
-                name="github"
-                value={formData.github}
-                onChange={handleChange}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="input-label">Profile Image</label>
-              <input className='signup-inputLable'
-                id="file-input"
-                type="file"
-                name="profile_image"
-                accept="image/*"
-                onChange={handleImageUpload}
-              />
-              {imageUploading && <p>Uploading image...</p>}
-              {formData.profileImage && <p>Image uploaded successfully.</p>}
-            </div>
-          </div>
-     
-          <button className="login-button" type="submit" disabled={loading}>
-            {loading ? 'Signing Up...' : 'Sign Up'}
-          </button>
-        </form>
-        <div className="signup-link">
-          Have an account?{' '}
-          <span onClick={() => navigate('/login')}>Log In</span>
         </div>
       </div>
     </div>

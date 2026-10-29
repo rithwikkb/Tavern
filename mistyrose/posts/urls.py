@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import AuthorPostsView, GitHubEventsView, PostDetailsByFqidView, PostImageView, CommentsByFQIDView, PublicPostsView, LikesViewByFQIDView
+from .views import GitHubEventsView, PostDetailsByFqidView, CommentsByFQIDView, PublicPostsView, LikesViewByFQIDView
 urlpatterns = [
     # Comment URLs
     path('<path:post_fqid>/comments/', CommentsByFQIDView.as_view(), name='get_comments_fqid'),

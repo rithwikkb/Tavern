@@ -145,3 +145,75 @@
   margin-top: 6px;
 }
 
+/* ---------- Sign-up form (scoped so it doesn't clash with the login page's shared class names) ---------- */
+.signup-card {
+  width: 100%;
+  max-width: 560px;
+  padding: 0 40px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.signup-subtitle {
+  margin: -8px 0 20px 0;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 15px;
+  color: rgba(0, 0, 0, 0.6);
+  text-align: center;
+}
+
+.signup-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.signup-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px 24px;
+  margin-bottom: 24px;
+}
+
+.signup-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.signup-field .input-label {
+  margin-bottom: 6px;
+}
+
+.signup-field input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 48px;
+  padding: 0 16px;
+  font-size: 16px;
+}
+
+.optional-tag {
+  font-weight: 400;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.5);
+  margin-left: 4px;
+}
+
+.signup-submit {
+  width: 100%;
+}
+
+.signup-card .signup-link {
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .signup-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

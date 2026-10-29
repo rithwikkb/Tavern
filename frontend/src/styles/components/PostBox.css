@@ -145,15 +145,6 @@
   opacity: 50%;
 }
 
-.poster-author-header {
-  display: flex;
-  flex-direction: row;
-  font-size: 12px;
-  color: grey;
-  justify-content: space-between;
-  gap: 15px;
-  margin-bottom: 10px;
-}
 
 .copy-notification {
   color: green;

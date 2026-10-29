@@ -59,7 +59,7 @@ const Login = () => {
     <div className="login-background-container">
       <div className='login-image'>
         <img className='logo' src = { appLogo } alt='logo Img' />
-        <img className= "image-log" src={ LogInImg } alt="LogIn image" />
+        <img className= "image-log" src={ LogInImg } alt="" />
       </div>
       <div className="login-container">
         <div className="login-intro">

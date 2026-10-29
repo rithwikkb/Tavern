@@ -34,7 +34,6 @@ function App() {
 
   const handleToggleExpanded = (newExpanded) => {
     setExpanded(newExpanded);
-    // console.log(`Navbar is now ${newExpanded ? 'expanded' : 'minimized'}`);
   };
 
   // No margin and padding in Login and Signup page

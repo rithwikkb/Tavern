@@ -94,10 +94,3 @@ def upload_to_imgur(image_data):
             return None, [response_data["data"].get("error", "Unknown error")]
     except Exception as e:
         return None, str(e)
-    
-def is_valid_uuid(uuid_string):
-    try:
-        uuid_obj = uuid.UUID(uuid_string)
-        return True
-    except ValueError:
-        return False

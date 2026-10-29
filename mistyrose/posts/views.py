@@ -2,7 +2,6 @@ import base64
 import logging
 import re
 import uuid
-from django.shortcuts import render
 import requests
 
 from users.utils import is_fqid, is_request_author, get_request_author, are_friends, parse_uuid
@@ -15,20 +14,13 @@ from .models import Post, Comment, Like
 from .serializers import PostSerializer, CommentSerializer, LikeSerializer, with_post_relations
 from django.shortcuts import get_object_or_404
 from django.contrib.contenttypes.models import ContentType
-from .models import Post
-from users.models import Author, Follows  
+from users.models import Follows
 from .pagination import LikesPagination, CustomPostsPagination
 import urllib.parse  # asked chatGPT how to decode the URL-encoded FQID 2024-11-02
 from django.http import FileResponse
 from django.conf import settings
 from django.core.cache import cache
-import requests
-from requests.auth import HTTPBasicAuth #basic auth
 from django.db import transaction #transaction requests so that if something happens in the middle, it'll be rolled back
-from urllib.parse import unquote, urlparse
-from rest_framework_simplejwt.authentication import JWTAuthentication  
-from rest_framework.generics import ListAPIView  
-from rest_framework.pagination import PageNumberPagination
 
 logger = logging.getLogger(__name__)
 
@@ -235,95 +227,12 @@ class PostDetailsByFqidView(APIView):
 
         if not can_view_post(request, post):
             return Response(status=status.HTTP_404_NOT_FOUND)
-        
-        # Get related objects for comments and likes
-        comments = post.comments.all()
-        likes = post.likes.all()
 
-        # Get the author of the post
-        author = post.author_id
-        
-        # Prepare the post data with dynamic links from the database
-        post_data = {
-            "type": "post",
-            "title": post.title,
-            "id": post.url,
-            "description": post.description,
-            "contentType": post.content_type,
-            "content": post.content,
-            "author": {
-                "type": "author",
-                "id": author.url,
-                "host": author.host,
-                "displayName": author.display_name,
-                "page": author.page,
-                "github": author.github,
-                "profileImage": author.profile_image
-            },
-            "comments": {
-                "type": "comments",
-                "page": post.url,  # Page URL for the comments
-                "id": post.url + "/comments",  # Custom URL for comments
-                "page_number": 1,
-                "size": len(comments),
-                "count": post.comments.count(),
-                "src": []
-            },
-            "likes": {
-                "type": "likes",
-                "page": post.url,  # Likes page URL
-                "id": post.url + "/likes",  # Custom URL for likes
-                "page_number": 1,
-                "size": len(likes),
-                "count": post.likes.count(),
-                "src": []
-            },
-            "published": post.published.isoformat(),
-            "visibility": post.visibility
-        }
-
-        # Collect comments data
-        for comment in comments:
-            comment_data = {
-                "type": "comment",
-                "author": {
-                    "type": "author",
-                    "id": comment.author_id.url,
-                    "page": comment.author_id.page,
-                    "host": comment.author_id.host,
-                    "displayName": comment.author_id.display_name,
-                    "github": comment.author_id.github,
-                    "profileImage": comment.author_id.profile_image
-                },
-                "comment": comment.comment,
-                "contentType": comment.content_type,
-                "published": comment.published.isoformat(),
-                "id": comment.url,
-                "post": post.url,
-                "page": comment.page,
-            }
-            post_data["comments"]["src"].append(comment_data)
-
-        # Collect likes data
-        for like in likes:
-            like_data = {
-                "type": "like",
-                "author": {
-                    "type": "author",
-                    "id": like.author_id.url,
-                    "page": like.author_id.page,
-                    "host": like.author_id.host,
-                    "displayName": like.author_id.display_name,
-                    "github": like.author_id.github,
-                    "profileImage": like.author_id.profile_image
-                },
-                "published": like.published.isoformat(),
-                "id": like.url,
-                "object": post.url
-            }
-            post_data["likes"]["src"].append(like_data)
-
-        return Response(post_data)
+        # same shape as posts in the feed (ids without a trailing slash, plus like/comment
+        # counts), so the shared post page renders exactly like a feed card
+        viewer = get_request_author(request)
+        post = with_post_relations(Post.objects.filter(id=post.id)).get()
+        return Response(PostSerializer(post, context={'viewer_id': viewer.id if viewer else None}).data)
 
 
 class AuthorPostsView(APIView):
@@ -333,8 +242,6 @@ class AuthorPostsView(APIView):
     pagination_class = CustomPostsPagination
 
     def get(self, request, author_serial):
-        paginator = self.pagination_class()
-
         try:
             # check if author_serial is a URL (FQID) or a uuid (SERIAL)
             if is_fqid(author_serial):
@@ -518,10 +425,6 @@ class PostImageView(APIView):
 
         try:
             encoded_image = post.content
-            # if ';base64,' in post.content:
-            #     header, encoded_image = post.content.split(';base64,')
-            # else:
-            #     encoded_image = post.content
 
             missing_padding = len(encoded_image) % 4
             if missing_padding:
@@ -580,12 +483,6 @@ class PublicPostsView(APIView):
                     authorized_authors.add(current_author.id)
 
             elif post_visibility == 'SHARED':
-                #original_url = post_data.get('original_url')  
-                #if original_url:
-                #    original_author_id = original_url[0]  
-                 #   authorized_authors.add(original_author_id) 
-                #post_author_id = post_data.get('author_id')  # Get the author_id from post data
-                #authorized_authors.add(post_author_id)
                 if post_author_id in following_ids or post_author_id == current_author.id:
                   authorized_authors.add(current_author.id) 
 
@@ -655,7 +552,7 @@ class CommentedView(APIView):
         #creating the comment object locally
         comment_serializer = CommentSerializer(data=request.data)
         if comment_serializer.is_valid():
-            comment = comment_serializer.save(
+            comment_serializer.save(
                 author_id=author,
                 post_id=post
             )

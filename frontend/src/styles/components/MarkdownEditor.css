@@ -1,45 +1,64 @@
+/* Write and preview side by side on wide screens, stacked on narrow ones */
 .markdown-editor {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex: 1;
-  width: 95%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
   text-align: start;
 }
+
+.markdown-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.markdown-pane-label {
+  margin-bottom: 6px;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.7);
+}
+
 #markdown-textarea {
-  flex: 0.1;
-  width: 58vw;
-  resize: none;
-  margin-bottom: 20px;
-  overflow-y: auto;
+  width: 100%;
+  min-height: 280px;
   box-sizing: border-box;
+  font-size: 16px;
+  resize: vertical;
+  overflow-y: auto;
 }
 #markdown-textarea::-webkit-scrollbar {
   display: none;
 }
-#markdown-textarea:focus {
-  flex: 1;
-}
 
 .markdown-preview {
-  font-size: 18px;
-  padding-left: 20px;
-  padding-right: 20px;
   flex: 1;
-  width: 58vw;
-  outline: none;
-  background: rgba(0, 0, 0, 0.1);
+  min-height: 280px;
+  padding: 16px 20px;
+  font-size: 16px;
+  background: rgba(255, 255, 255, 0.55);
   color: black;
-  border: 3px solid black;
+  border: 3px dashed rgba(0, 0, 0, 0.4);
   border-radius: 20px;
   font-family: 'Roboto', sans-serif;
-  overflow-y: auto; 
+  overflow-y: auto;
   overflow-x: hidden;
-  white-space: pre-wrap; 
-  word-wrap: break-word; 
-  box-sizing: border-box; 
-  text-align: start; 
+  word-wrap: break-word;
+  box-sizing: border-box;
+  white-space: normal;
 }
 .markdown-preview::-webkit-scrollbar {
   display: none;
+}
+
+@media (max-width: 900px) {
+  .markdown-editor {
+    grid-template-columns: 1fr;
+  }
+  #markdown-textarea,
+  .markdown-preview {
+    min-height: 180px;
+  }
 }

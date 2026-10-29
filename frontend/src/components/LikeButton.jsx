@@ -10,7 +10,7 @@ import { Author } from '../models/Author';
 import AuthorsListModal from '../components/AuthorsListModal';
 import mojs from '@mojs/core';
 
-const LikeButton = ({ post, posterId }) => {
+const LikeButton = ({ post }) => {
   // the feed and profile include like counts with each post, so cards don't need a request each
   const [likesCount, setLikesCount] = useState(post.likes_count ?? 0);
   const [showAuthorsModal, setShowAuthorsModal] = useState(false);

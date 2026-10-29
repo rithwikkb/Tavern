@@ -12,37 +12,12 @@ export const getPost = async (authorSerial, postSerial) => {
   }
 };
 
-// Update post visibility to 'DELETED' instead of actually deleting the post
-export const deletePost = async (authorSerial, postSerial) => {
-  try {
-    // Update the post's visibility to 'DELETED' instead of deleting
-    const postData = { visibility: 'DELETED' };
-    const response = await api.patch(
-      `authors/${authorSerial}/posts/${postSerial}/`,
-      postData
-    );
-    return response;
-  } catch (error) {
-    throw error;
-  }
-};
-
 export const updatePost = async (authorSerial, postSerial, postData) => {
   try {
     const response = await api.put(
       `authors/${authorSerial}/posts/${postSerial}/`,
       postData
     );
-    return response;
-  } catch (error) {
-    throw error;
-  }
-};
-
-// URL: ://service/api/posts/{POST_FQID}
-export const getPostByFqid = async (postFqid) => {
-  try {
-    const response = await api.get(`posts/${postFqid}/`, {params: {size: 100}});
     return response;
   } catch (error) {
     throw error;
@@ -70,17 +45,3 @@ export const createPost = async (authorSerial, postData) => {
   }
 };
 
-// URL: ://service/api/authors/{AUTHOR_SERIAL}/posts/{POST_SERIAL}/image
-export const getPostImageUrl = async (authorSerial, postSerial) => {
-  try {
-    const response = await api.get(
-      `authors/${authorSerial}/posts/${postSerial}/image/`,
-      { responseType: 'blob' }
-    );
-
-    const imageUrl = URL.createObjectURL(response.data);
-    return imageUrl;
-  } catch (error) {
-    throw error;
-  }
-};

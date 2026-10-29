@@ -1,9 +1,7 @@
-import re
 from urllib.parse import urlparse
 from django.db import models
 import uuid
 from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
 
 class Author(models.Model):
     # Each author will have a unique identifier (UUID).
@@ -32,39 +30,13 @@ class Author(models.Model):
         if not self.page:
             self.page = f"{self.host.rstrip('/')}/profile/{self.id}/"
         
-        # # if profile_image is a base64 string, upload to imgur and get the URL
-        # if self.is_valid_base64(self.profile_image):
-        #     img_url, error = upload_to_imgur(self.profile_image)
-        #     if img_url and self.is_valid_url(img_url[0]):
-        #         self.profile_image = img_url[0]
-        
         # add github link if not provided
         if not self.github:
             self.github = "https://github.com/"
             
         
         super().save(*args, **kwargs)
-        
-    # @staticmethod
-    # def is_valid_base64(value):
-    #     """
-    #     Checks if the value is a valid base64 string.
-    #     """
-    #     base64_regex = re.compile(
-    #         r'^data:image\/[a-zA-Z]+;base64,[a-zA-Z0-9+/]+={0,2}$'
-    #     )
-    #     return base64_regex.match(value)
-    
-    @staticmethod
-    def is_valid_url(value):
-        """
-        Checks if the value is a valid URL.
-        """
-        url_regex = re.compile(
-            r'^(http|https):\/\/([A-Za-z0-9\.-]+)\.([A-Za-z]{2,})([\/\w\.-]*)*\/?$'
-        )
-        return url_regex.match(value)
-        
+
     def __str__(self):
         return self.display_name
     

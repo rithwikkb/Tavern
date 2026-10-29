@@ -1,30 +1,14 @@
-.post-detail-container {
-    width: 90%; /* Increase the width of the box; can be adjusted */
-    max-width: 800px; /* Set a maximum width to prevent it from becoming too wide on large screens */
-    margin: 20px auto; /* Center the box with some margin */
-    padding: 40px; /* Increase padding for a larger feel */
-    border-radius: 20px; /* Maintain rounded corners; adjust radius as needed */
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); /* Optional: Add some shadow for depth */
+/* A shared post shows as a single card, centered like the feed */
+.post-detail-page {
+  width: 100%;
+  max-width: 640px;
+  margin: 24px auto;
 }
 
-.post-author-info {
-    display: flex;
-    align-items: center;
-    margin-bottom: 25px; /* Increase space between author info and post content */
-}
-  
-.profile-image-container {
-    margin-right: 15px; /* Increase margin for more spacing */
-    width: 60px; /* Increase size of the profile image container */
-    height: 60px; /* Increase size of the profile image container */
-    border-radius: 50%;
-    border: 2px solid #ccc; /* Optional styling */
-    overflow: hidden;
-    background-color: #f0f0f0; /* Placeholder background */
-}
-  
-.profile-image {
-    width: 100%;
-    height: auto;
-    object-fit: cover;
+.post-detail-message {
+  width: 100%;
+  text-align: center;
+  margin-top: 60px;
+  font-family: 'Fredoka', sans-serif;
+  color: rgba(0, 0, 0, 0.7);
 }

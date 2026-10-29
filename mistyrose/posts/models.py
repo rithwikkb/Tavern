@@ -1,12 +1,8 @@
 import uuid
 from django.db import models
-import uuid
 from django.contrib.contenttypes.fields import GenericRelation, GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError # Remove this!
-
-def get_upload_path(instance, filename):
-    return f'posts/{instance.author_id}/{instance.id}/{filename}'
 
 # Create your models here.
 class Post(models.Model):

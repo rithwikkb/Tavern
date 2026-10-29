@@ -238,10 +238,6 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
-    # 'AUTH_COOKIE': 'access_token',  # Name of the access token cookie
-    # 'AUTH_COOKIE_HTTP_ONLY': True,  # HttpOnly flag
-    # 'AUTH_COOKIE_SAMESITE': 'Lax',  # CSRF protection
-    # 'AUTH_COOKIE_SECURE': True,  # Only send cookies over HTTPS
 }
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
