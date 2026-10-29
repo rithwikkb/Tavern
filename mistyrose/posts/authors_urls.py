@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import (
     AuthorPostsView,
+    AuthorTimelineView,
     CommentedView, 
     CommentsView, 
     LikedView, 
@@ -23,6 +24,7 @@ urlpatterns = [
     path('<uuid:author_serial>/posts/<uuid:post_serial>/image/', PostImageView.as_view(), name='post-image'),
     path('<uuid:author_serial>/posts/<uuid:post_serial>/', PostDetailsView.as_view(), name='post-detail'),
     path('<uuid:author_serial>/posts/', AuthorPostsView.as_view(), name='author-posts'),
+    path('<uuid:author_serial>/timeline/', AuthorTimelineView.as_view(), name='author-timeline'),
 
     # Comment-related URLs (specific to general)
     path('<uuid:author_serial>/post/<uuid:post_serial>/comment/<path:comment_fqid>/', CommentRemoteByFQIDView.as_view(), name='get_remote_comment_fqid'),

@@ -15,19 +15,17 @@ from .models import Author, Follows
 from django.utils import timezone  
 from django.conf import settings  
 import uuid  
-from posts.models import Post  
 from django.contrib.auth import authenticate  
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from .pagination import AuthorsPagination  
-from posts.serializers import PostSerializer, with_post_relations
 from uuid import UUID 
 from rest_framework.throttling import ScopedRateThrottle
 import urllib.parse
 
 from .demo import maybe_reset_demo_account
-from .utils import is_fqid, upload_to_imgur, is_request_author, get_request_author, are_friends, parse_uuid, validate_web_url
+from .utils import is_fqid, upload_to_imgur, is_request_author, parse_uuid, validate_web_url
 
 logger = logging.getLogger(__name__)
 
@@ -275,11 +273,6 @@ class AuthorProfileView(APIView):
         """Retrieve the count of authors that the user is following with accepted follow requests."""
         return Follows.objects.filter(local_follower_id=author, status='ACCEPTED').count()
 
-    def get_author_posts(self, author, visibility, viewer):
-        """Retrieve posts by visibility and serialize them."""
-        posts = with_post_relations(Post.objects.filter(author_id=author, visibility=visibility).order_by('-published'))
-        return PostSerializer(posts, many=True, context={'viewer_id': viewer.id if viewer else None}).data
-
     def get(self, request, pk):
         pk = str(pk)
         # Retrieve the author instance by primary key (pk)
@@ -301,24 +294,15 @@ class AuthorProfileView(APIView):
         friends_count = self.get_friends_count(request, pk=author.id)
         followers_count = self.get_follower_count(author)
         following_count = self.get_following_count(author)
-        viewer = get_request_author(request)
-        public_posts = self.get_author_posts(author, 'PUBLIC', viewer)
-        # friends-only posts are shown to the author and their friends only
-        can_see_friends_posts = viewer is not None and (viewer.id == author.id or are_friends(viewer, author))
-        friends_posts = self.get_author_posts(author, 'FRIENDS', viewer) if can_see_friends_posts else []
-        unlisted_posts = self.get_author_posts(author, 'UNLISTED', viewer)
-        shared_posts = self.get_author_posts(author, 'SHARED', viewer)
-        
+        # the profile page loads the author's posts a page at a time from
+        # /api/authors/<id>/timeline/ instead of getting all of them here
+
         # Prepare the response data
         data = {
             **author_data,
             'friends_count': friends_count,
             'followers_count': followers_count,
             'following_count': following_count,
-            'public_posts': public_posts,
-            'friends_posts': friends_posts,
-            'unlisted_posts': unlisted_posts,
-            'shared_posts': shared_posts,
         }
         
         return Response(data)

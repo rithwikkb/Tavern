@@ -7,6 +7,8 @@ import '../styles/pages/Profile.css';
 import Cookies from 'js-cookie';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import PostBox from '../components/PostBox';
+import FeedEnd from '../components/FeedEnd';
+import useInfinitePosts from '../hooks/useInfinitePosts';
 import NotFound from './NotFound';
 import { getFollowers } from '../services/FollowDetailService';
 import { getFriends } from '../services/FriendsDetailService';
@@ -30,6 +32,8 @@ const Profile = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
+  // every post you're allowed to see, newest first, a page at a time; each card shows its visibility
+  const timeline = useInfinitePosts(`authors/${authorId}/timeline/`);
 
   // only the profile request decides when loading is done; the smaller author request
   // finishing first used to flash "Error loading profile data"
@@ -139,13 +143,6 @@ const Profile = () => {
   const hasGithub =
     /^https?:\/\//i.test(profileData.github || '') &&
     !/^https?:\/\/github\.com\/?$/.test(profileData.github);
-  // one timeline of every post you're allowed to see, newest first; each card shows its visibility
-  const posts = [
-    ...(profileData.public_posts || []),
-    ...(profileData.friends_posts || []),
-    ...(profileData.unlisted_posts || []),
-    ...(profileData.shared_posts || []),
-  ].sort((a, b) => new Date(b.published) - new Date(a.published));
 
   return (
     <div className="profile-page">
@@ -219,8 +216,10 @@ const Profile = () => {
       </div>
 
       <div className="posts-section">
-        {posts.length > 0 ? (
-          posts.map((post) => (
+        {timeline.loading ? (
+          <PageLoader inline />
+        ) : timeline.posts.length > 0 ? (
+          timeline.posts.map((post) => (
             <PostBox
               key={post.id}
               post={post}
@@ -230,6 +229,7 @@ const Profile = () => {
         ) : (
           <p>No posts available.</p>
         )}
+        <FeedEnd feed={timeline} />
       </div>
 
       {/* Authors List Modal for Followers, Friends, or Following */}

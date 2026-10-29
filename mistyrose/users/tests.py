@@ -173,9 +173,10 @@ class AuthorProfileViewTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['displayName'], 'Test Author')
         self.assertEqual(response.data['followers_count'], 1)
-        self.assertEqual(response.data['public_posts'][0]['title'], 'Public Post')
-        self.assertEqual(len(response.data['friends_posts']), 1)
-        self.assertEqual(len(response.data['unlisted_posts']), 1)
+        # posts come from the paged timeline, not the profile itself
+        self.assertNotIn('public_posts', response.data)
+        timeline = self.client.get(f'/api/authors/{self.author.id}/timeline/').data
+        self.assertEqual({p['title'] for p in timeline['posts']}, {'Public Post', 'Friends Post', 'Unlisted Post'})
 
     def test_author_profile_not_found(self):
         non_existing_uuid = uuid.uuid4()

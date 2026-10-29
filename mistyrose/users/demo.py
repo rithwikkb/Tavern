@@ -96,6 +96,36 @@ POSTS = [
     ("coffee", "sample_morgan", "PUBLIC", "text/plain", "New coffee spot",
      "Found a tiny café near campus with great pour-overs and plenty of outlets. "
      "Perfect for long study sessions.", 52),
+    # older posts, so there's enough history to scroll through
+    ("study-playlist", "sample_taylor", "PUBLIC", "text/plain", "Study playlist recommendations?",
+     "Lo-fi is getting repetitive. What do you all listen to when you need to focus?", 70),
+    ("plant", "sample_morgan", "PUBLIC", "text/plain", "My plant survived the week",
+     "Day 7 and the basil is still alive. Small wins.", 85),
+    ("hackathon", "sample_sam", "PUBLIC", "text/markdown", "Hackathon recap",
+     "Built a tiny app that reminds you to drink water. We didn't win, but:\n\n"
+     "- learned **React Native** in a weekend\n- met great people\n- slept 3 hours", 100),
+    ("bagels", "sample_jordan", "PUBLIC", "text/plain", "Tried making bagels",
+     "Boiling them before baking is the secret. They came out chewy in the best way.", 120),
+    ("morning-run", "sample_avery", "PUBLIC", "text/plain", "Early morning run",
+     "5 km before sunrise. The streets are so quiet at that hour.", 140),
+    ("book-club", "sample_taylor", "PUBLIC", "text/markdown", "Book club pick",
+     "Next month we're reading *The Pragmatic Programmer*. Anyone want to join?", 165),
+    ("desk-setup", "sample_morgan", "PUBLIC", "text/plain", "Desk setup update",
+     "Finally got a monitor arm. My desk feels twice as big.", 190),
+    ("rubber-duck", "sample_sam", "PUBLIC", "text/plain", "Rubber duck debugging works",
+     "Explained my bug out loud to a literal rubber duck and found it in two minutes.", 215),
+    ("farmers-market", "sample_jordan", "PUBLIC", "text/plain", "Farmers market haul",
+     "Fresh peaches, sourdough flour, and way too many tomatoes.", 240),
+    ("camping", "sample_avery", "PUBLIC", "text/plain", "Camping trip planning",
+     "Looking at a two-night trip next month. Lake or mountains? Leaning mountains.", 265),
+    ("keyboard", "sample_taylor", "PUBLIC", "text/plain", "Learning to touch type",
+     "Up to 60 words per minute. My old two-finger method is officially retired.", 290),
+    ("rainy-day", "sample_morgan", "PUBLIC", "text/plain", "Rainy day",
+     "Tea, a good book, and rain on the window. Perfect Sunday.", 315),
+    ("first-post", "sample_sam", "PUBLIC", "text/plain", "Hello Tavern!",
+     "First post here. Looking forward to seeing what everyone's up to.", 340),
+    ("pizza", "sample_jordan", "PUBLIC", "text/plain", "Homemade pizza night",
+     "Same dough as my bread, just stretched thin. Margherita turned out great.", 360),
 ]
 
 # post key, commenter, text, hours ago

@@ -1232,14 +1232,14 @@ class PostVisibilityTestCase(APITestCase):
     def test_profile_hides_friends_posts_from_non_friend(self):
         self.make_post("FRIENDS")
         self.login_as(self.user_b)
-        response = self.client.get(f"/api/authors/{self.author_a.id}/profile/")
+        response = self.client.get(f"/api/authors/{self.author_a.id}/timeline/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["friends_posts"], [])
+        self.assertEqual(response.data["posts"], [])
 
         # the author still sees their own friends-only posts
         self.login_as(self.user_a)
-        response = self.client.get(f"/api/authors/{self.author_a.id}/profile/")
-        self.assertEqual(len(response.data["friends_posts"]), 1)
+        response = self.client.get(f"/api/authors/{self.author_a.id}/timeline/")
+        self.assertEqual(len(response.data["posts"]), 1)
 
 
 class OwnershipTestCase(APITestCase):
@@ -1483,8 +1483,16 @@ class FeedEfficiencyAndLikesTest(APITestCase):
         with CaptureQueriesContext(connection) as large:
             response = self.client.get("/api/posts/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data["posts"]), 29)
+        # 29 posts: a full first page, and the same number of queries as with 5 posts
+        self.assertEqual(len(response.data["posts"]), 20)
         self.assertEqual(len(large.captured_queries), len(small.captured_queries))
+
+        # the second page is the remaining 9, also in a fixed number of queries
+        with CaptureQueriesContext(connection) as second:
+            page_two = self.client.get("/api/posts/", {"before": response.data["next"]})
+        self.assertEqual(len(page_two.data["posts"]), 9)
+        self.assertIsNone(page_two.data["next"])
+        self.assertEqual(len(second.captured_queries), len(large.captured_queries))
 
     def test_liked_by_me_beyond_first_page_of_likes(self):
         post = self.make_post(self.authors[1], n_comments=0, n_likes=0)
@@ -1606,3 +1614,87 @@ class CommentDeleteTest(BaseTestCase):
     def test_wrong_author_in_url_is_not_found(self):
         url = f'/api/authors/{self.stranger.id}/commented/{self.comment.id}/'
         self.assertEqual(self.client.delete(url).status_code, status.HTTP_404_NOT_FOUND)
+
+
+class InfiniteScrollTest(APITestCase):
+    """The feed and profile timelines load newest first, a page at a time, by cursor."""
+    def setUp(self):
+        def make_author(name):
+            user = User.objects.create_user(username=name, password="somethingHardToCrack357")
+            return Author.objects.create(display_name=name, host="http://testserver", user=user)
+        self.viewer = make_author("scroller")
+        self.writer = make_author("writer")
+        self.stranger = make_author("stranger")
+        Follows.objects.create(local_follower_id=self.viewer, followed_id=self.writer, status="ACCEPTED")
+        token = RefreshToken.for_user(self.viewer.user).access_token
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+
+    def make_posts(self, author, count, visibility="PUBLIC", start_hours=0):
+        from django.utils import timezone
+        from datetime import timedelta
+        now = timezone.now()
+        posts = []
+        for i in range(count):
+            post = Post.objects.create(author_id=author, title=f"{author.display_name} {visibility} {i}",
+                                       content="c", content_type="text/plain", visibility=visibility)
+            Post.objects.filter(id=post.id).update(published=now - timedelta(hours=start_hours + i))
+            posts.append(post)
+        return posts
+
+    def scroll(self, url):
+        """Follow `next` cursors to the end; returns the pages' post titles."""
+        pages, cursor = [], None
+        while True:
+            data = self.client.get(url, {"before": cursor} if cursor else {}).data
+            pages.append([p["title"] for p in data["posts"]])
+            cursor = data["next"]
+            if cursor is None:
+                return pages
+
+    def test_feed_pages_cover_everything_once_in_order(self):
+        self.make_posts(self.writer, 25)
+        self.make_posts(self.stranger, 20, start_hours=100)
+        pages = self.scroll("/api/posts/")
+        self.assertEqual([len(p) for p in pages], [20, 20, 5])
+        titles = [t for page in pages for t in page]
+        self.assertEqual(len(titles), len(set(titles)))
+        self.assertEqual(titles[:25], [f"writer PUBLIC {i}" for i in range(25)])
+
+    def test_hidden_posts_never_leak_into_any_page(self):
+        self.make_posts(self.writer, 22)
+        self.make_posts(self.stranger, 3, visibility="FRIENDS")
+        self.make_posts(self.stranger, 3, visibility="UNLISTED")
+        self.make_posts(self.writer, 3, visibility="DELETED")
+        titles = [t for page in self.scroll("/api/posts/") for t in page]
+        self.assertEqual(len(titles), 22)
+        self.assertFalse([t for t in titles if "stranger" in t or "DELETED" in t])
+
+    def test_new_posts_while_scrolling_dont_shift_the_next_page(self):
+        self.make_posts(self.writer, 30)
+        first = self.client.get("/api/posts/").data
+        # someone posts while the viewer is reading page one
+        self.make_posts(self.stranger, 5)
+        second = self.client.get("/api/posts/", {"before": first["next"]}).data
+        self.assertEqual([p["title"] for p in second["posts"]], [f"writer PUBLIC {i}" for i in range(20, 30)])
+
+    def test_posts_with_the_same_time_are_split_cleanly(self):
+        posts = self.make_posts(self.writer, 23)
+        Post.objects.filter(id__in=[p.id for p in posts]).update(published=posts[0].published)
+        titles = [t for page in self.scroll("/api/posts/") for t in page]
+        self.assertEqual(sorted(titles), sorted(p.title for p in posts))
+
+    def test_profile_timeline_pages_and_respects_friends_only(self):
+        self.make_posts(self.stranger, 21)
+        self.make_posts(self.stranger, 2, visibility="FRIENDS")
+        pages = self.scroll(f"/api/authors/{self.stranger.id}/timeline/")
+        self.assertEqual([len(p) for p in pages], [20, 1])
+
+        # once they're friends, the friends-only posts are part of the timeline too
+        Follows.objects.create(local_follower_id=self.viewer, followed_id=self.stranger, status="ACCEPTED")
+        Follows.objects.create(local_follower_id=self.stranger, followed_id=self.viewer, status="ACCEPTED")
+        pages = self.scroll(f"/api/authors/{self.stranger.id}/timeline/")
+        self.assertEqual(sum(len(p) for p in pages), 23)
+
+    def test_bad_cursor_is_rejected(self):
+        for bad in ("nonsense", "123_not-a-uuid", "99999999999999999999999_" + str(uuid.uuid4())):
+            self.assertEqual(self.client.get("/api/posts/", {"before": bad}).status_code, 400)

@@ -6,13 +6,13 @@ import SearchBar from '../components/SearchBar';
 import SearchResultsList from '../components/SearchResultsList';
 import { makeGithubActivityPosts } from '../services/GithubService';
 import Cookies from 'js-cookie';
-import api from '../services/axios';
 import PostBox from '../components/PostBox';
+import FeedEnd from '../components/FeedEnd';
+import useInfinitePosts from '../hooks/useInfinitePosts';
 
 const Home = () => {
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // the server only returns posts you're allowed to see, newest first, a page at a time
+  const feed = useInfinitePosts('posts/');
   const [results, setResults] = useState([]);
   const hasRun = useRef(false);
   const searchArea = useRef(null);
@@ -54,28 +54,12 @@ const Home = () => {
     makeGithubActivityPostsFromService();
   }, []);
 
-  useEffect(() => {
-    const fetchPosts = async () => {
-      try {
-        // the server only returns posts you're allowed to see, newest first
-        const response = await api.get('posts/');
-        setPosts(response.data.posts);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPosts();
-  }, []);
-
-  if (loading) {
+  if (feed.loading) {
     return <PageLoader />;
   }
 
-  if (error) {
-    return <p>Error: {error}</p>;
+  if (feed.error) {
+    return <p>Error: {feed.error.message}</p>;
   }
 
   return (
@@ -93,9 +77,9 @@ const Home = () => {
           {searchOpen && results.length > 0 && <SearchResultsList results={results} />}
         </div>
         <div className="posts-container">
-          {posts.length > 0 ? (
+          {feed.posts.length > 0 ? (
             <ul>
-              {posts.map((post) => (
+              {feed.posts.map((post) => (
                 <li key={post.id}>
                   <PostBox post={post} poster={post.author} />
                 </li>
@@ -104,6 +88,7 @@ const Home = () => {
           ) : (
             <p>No posts available.</p>
           )}
+          <FeedEnd feed={feed} />
         </div>
       </div>
       <div className="follow-request-container">

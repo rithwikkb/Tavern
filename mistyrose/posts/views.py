@@ -1,4 +1,6 @@
 import base64
+import uuid
+from datetime import datetime, timedelta, timezone as dt_timezone
 import logging
 import re
 import requests
@@ -6,6 +8,7 @@ import requests
 from users.utils import is_fqid, is_request_author, get_request_author, are_friends, parse_uuid
 from users.models import Author
 from rest_framework import status
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
@@ -24,8 +27,38 @@ from django.db import transaction #transaction requests so that if something hap
 
 logger = logging.getLogger(__name__)
 
-# The home feed shows at most this many of the newest posts
-FEED_POST_LIMIT = 100
+# The feed and profiles load this many posts at a time (infinite scroll)
+FEED_PAGE_SIZE = 20
+_EPOCH = datetime(1970, 1, 1, tzinfo=dt_timezone.utc)
+
+
+def post_cursor(post):
+    """
+    An opaque "load more after this post" marker: its time (in microseconds) and id.
+    Paging by (time, id) instead of page numbers means posts never repeat or get skipped
+    when new ones are added while someone scrolls.
+    """
+    return f"{(post.published - _EPOCH) // timedelta(microseconds=1)}_{post.id}"
+
+
+def page_of_posts(queryset, before):
+    """
+    The next FEED_PAGE_SIZE posts of `queryset` (newest first) after the `before` cursor,
+    plus the cursor for the page after that (None at the end).
+    """
+    queryset = queryset.order_by('-published', '-id')
+    if before:
+        try:
+            micros, post_id = before.split('_', 1)
+            published = _EPOCH + timedelta(microseconds=int(micros))
+            post_id = uuid.UUID(post_id)
+        except (ValueError, OverflowError):
+            raise DRFValidationError({'before': 'Invalid cursor.'})
+        queryset = queryset.filter(Q(published__lt=published) | Q(published=published, id__lt=post_id))
+    posts = list(queryset[:FEED_PAGE_SIZE + 1])
+    has_more = len(posts) > FEED_PAGE_SIZE
+    posts = posts[:FEED_PAGE_SIZE]
+    return posts, (post_cursor(posts[-1]) if has_more else None)
 
 
 
@@ -463,11 +496,36 @@ class PublicPostsView(APIView):
             | Q(visibility='FRIENDS', author_id__in=mutual_friend_ids)
             | Q(author_id=current_author)
         )
-        # newest posts first (Post.Meta.ordering); deleted posts are never shown in the feed
-        posts = with_post_relations(Post.objects.filter(visible).exclude(visibility='DELETED'))[:FEED_POST_LIMIT]
+        # newest first, a page at a time; deleted posts are never shown in the feed
+        posts, next_cursor = page_of_posts(
+            with_post_relations(Post.objects.filter(visible).exclude(visibility='DELETED')),
+            request.query_params.get('before'),
+        )
 
         serializer = PostSerializer(posts, many=True, context={'viewer_id': current_author.id})
-        return Response({'posts': serializer.data}, status=status.HTTP_200_OK)
+        return Response({'posts': serializer.data, 'next': next_cursor}, status=status.HTTP_200_OK)
+
+
+class AuthorTimelineView(APIView):
+    """
+    GET: one author's posts for their profile page, newest first, a page at a time
+    (`?before=<cursor>` for the next page). Friends-only posts are included only for
+    the author and their friends; deleted posts never are.
+    """
+    def get(self, request, author_serial):
+        author = get_object_or_404(Author, id=author_serial)
+        viewer = get_request_author(request)
+
+        visibilities = ['PUBLIC', 'UNLISTED', 'SHARED']
+        if viewer is not None and (viewer.id == author.id or are_friends(viewer, author)):
+            visibilities.append('FRIENDS')
+
+        posts, next_cursor = page_of_posts(
+            with_post_relations(Post.objects.filter(author_id=author, visibility__in=visibilities)),
+            request.query_params.get('before'),
+        )
+        serializer = PostSerializer(posts, many=True, context={'viewer_id': viewer.id if viewer else None})
+        return Response({'posts': serializer.data, 'next': next_cursor}, status=status.HTTP_200_OK)
     
 #endregion
 
