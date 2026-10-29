@@ -68,7 +68,7 @@ POSTS = [
      "This is the **demo account** — feel free to look around!\n\n"
      "Things to try:\n\n"
      "- Like a post or leave a comment\n"
-     "- Open the **Friends** and **Unlisted** tabs on the home feed\n"
+     "- Spot the **Public**, **Friends** and **Unlisted** badges on posts in your feed\n"
      "- Accept the waiting follow request in the top-right corner\n"
      "- Write your own post (plain text, Markdown, or an image)\n", 2),
     ("demo-thoughts", settings.DEMO_USERNAME, "FRIENDS", "text/plain", "Friends-only post",

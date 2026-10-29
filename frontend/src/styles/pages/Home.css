@@ -39,19 +39,6 @@
   font-weight: 400;
   font-size: 20px;
 }
-.home-filter-options {
-  margin: 10px 0 0 20px;
-  display: flex;
-  flex-direction: row;
-  justify-content: flex-start;
-  gap: 40px;
-}
-
-.home-filter-options h3 {
-  font-family: 'Fredoka', sans-serif;
-  font-size: 13px;
-}
-
 .posts-container {
   display: flex;
   flex-direction: column;

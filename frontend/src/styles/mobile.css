@@ -145,11 +145,6 @@
     order: -1;
   }
 
-  .home-filter-options {
-    margin: 10px 0 0 4px;
-    gap: 24px;
-  }
-
   .posts-container ul {
     padding-left: 0;
   }
@@ -282,10 +277,6 @@
     width: 100%;
     padding: 0 12px;
     box-sizing: border-box;
-  }
-
-  .profile-filter-options {
-    margin-left: 12px;
   }
 
   /* ---------- Modals ---------- */

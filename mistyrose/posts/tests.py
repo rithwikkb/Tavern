@@ -138,7 +138,34 @@ class PublicPostsViewTestCase(BaseTestCase):
     def test_get_public_posts(self):
         response = self.client.get('/api/posts/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)  # should return two posts
+        self.assertEqual(len(response.data['posts']), 2)  # should return two posts
+
+    def test_feed_only_includes_posts_the_viewer_may_see(self):
+        stranger_user = User.objects.create_user(username='feedstranger', password='somethingHardToCrack357')
+        stranger = Author.objects.create(user=stranger_user, display_name='Stranger', host='http://localhost:8000')
+        def make(author, visibility):
+            return Post.objects.create(author_id=author, title=f'{author.display_name} {visibility}',
+                                       content_type='text/plain', content='x', visibility=visibility)
+        # viewer follows author2 (one way) and is mutual friends with nobody yet
+        Follows.objects.create(local_follower_id=self.author, followed_id=self.author2, status='ACCEPTED')
+        followed_unlisted = make(self.author2, 'UNLISTED')
+        followed_friends = make(self.author2, 'FRIENDS')
+        stranger_unlisted = make(stranger, 'UNLISTED')
+        stranger_friends = make(stranger, 'FRIENDS')
+        own_friends = make(self.author, 'FRIENDS')
+        own_deleted = make(self.author, 'DELETED')
+
+        def feed_ids():
+            return {p['id'].rstrip('/').split('/')[-1] for p in self.client.get('/api/posts/').data['posts']}
+
+        ids = feed_ids()
+        self.assertTrue({str(followed_unlisted.id), str(own_friends.id), str(self.post1.id), str(self.post2.id)} <= ids)
+        for hidden in (followed_friends, stranger_unlisted, stranger_friends, own_deleted):
+            self.assertNotIn(str(hidden.id), ids)
+
+        # once author2 follows back they are friends, so their friends-only post shows up
+        Follows.objects.create(local_follower_id=self.author2, followed_id=self.author, status='ACCEPTED')
+        self.assertIn(str(followed_friends.id), feed_ids())
 
 #region Comments Tests
 #asked chatGPT to assist with writing test cases for comments endpoints 2024-11-04

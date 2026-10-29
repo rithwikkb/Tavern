@@ -1,7 +1,6 @@
 import base64
 import logging
 import re
-import uuid
 import requests
 
 from users.utils import is_fqid, is_request_author, get_request_author, are_friends, parse_uuid
@@ -13,6 +12,7 @@ from rest_framework.response import Response
 from .models import Post, Comment, Like
 from .serializers import PostSerializer, CommentSerializer, LikeSerializer, with_post_relations
 from django.shortcuts import get_object_or_404
+from django.db.models import Q
 from django.contrib.contenttypes.models import ContentType
 from users.models import Follows
 from .pagination import LikesPagination, CustomPostsPagination
@@ -439,7 +439,7 @@ class PostImageView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class PublicPostsView(APIView):
-    # To view all of the public posts in the home page
+    # The home feed: every post the current author is allowed to see, newest first
     permission_classes = [IsAuthenticatedOrReadOnly] 
 
     def get(self, request):
@@ -448,65 +448,26 @@ class PublicPostsView(APIView):
 
         current_author = get_object_or_404(Author, user=request.user)
 
-        # newest posts first (Post.Meta.ordering); deleted posts are never shown in the feed
-        posts = with_post_relations(Post.objects.exclude(visibility='DELETED'))[:FEED_POST_LIMIT]
-
-        serializer = PostSerializer(posts, many=True, context={'viewer_id': current_author.id})
-
-        authorized_authors_per_post = []
-
         # - following_ids: set of IDs of authors that the current author follows
         # - followers_ids: set of IDs of authors that follow the current author
         following_ids = set(Follows.objects.filter(local_follower_id=current_author, status='ACCEPTED').values_list('followed_id', flat=True))
-        followers_ids = set(Follows.objects.filter(followed_id=current_author, status='ACCEPTED').values_list('local_follower_id', flat=True))  
+        followers_ids = set(Follows.objects.filter(followed_id=current_author, status='ACCEPTED').values_list('local_follower_id', flat=True))
         mutual_friend_ids = following_ids.intersection(followers_ids)
 
-        posts_to_remove = []
-        filtered_posts = []
-        for post_data in serializer.data:
-            post_visibility = post_data.get('visibility')
-            post_author_id = uuid.UUID(post_data.get('author').get('id').rstrip('/').split('/authors/')[-1])
-            authorized_authors = set()
+        # public posts from everyone, unlisted/shared posts from people you follow,
+        # friends-only posts from mutual friends, and all of your own posts.
+        # Filtering in the query keeps the limit counting only posts the viewer can see.
+        visible = (
+            Q(visibility='PUBLIC')
+            | Q(visibility__in=['UNLISTED', 'SHARED'], author_id__in=following_ids)
+            | Q(visibility='FRIENDS', author_id__in=mutual_friend_ids)
+            | Q(author_id=current_author)
+        )
+        # newest posts first (Post.Meta.ordering); deleted posts are never shown in the feed
+        posts = with_post_relations(Post.objects.filter(visible).exclude(visibility='DELETED'))[:FEED_POST_LIMIT]
 
-            if post_visibility == 'PUBLIC':
-                # every author lives on this node, so public posts are visible to everyone
-                authorized_authors.add(current_author.id)
-
-            elif post_visibility == 'UNLISTED':
-                # Show the unlisted post if the post's author is someone the current author follows
-                if post_author_id in following_ids or post_author_id == current_author.id:
-                    authorized_authors.add(current_author.id)
-
-            elif post_visibility == 'FRIENDS':
-                # Only show FRIENDS posts if the post's author is a mutual friend
-                if post_author_id in mutual_friend_ids or post_author_id == current_author.id:
-                    authorized_authors.add(current_author.id)
-
-            elif post_visibility == 'SHARED':
-                if post_author_id in following_ids or post_author_id == current_author.id:
-                  authorized_authors.add(current_author.id) 
-
-
-            # Include visibility_type in the authorized_authors_per_post dictionary
-            if authorized_authors: #if list is not empty
-                authorized_authors_per_post.append({
-                    'post_id': post_data['id'], 
-                    'authorized_authors': list(authorized_authors),
-                    'visibility_type': post_visibility  # Add visibility_type here
-                })
-            else:
-                posts_to_remove.append(post_data['id'])
-
-        posts_to_remove = set(posts_to_remove)
-        filtered_posts = [post for post in serializer.data if post['id'] not in posts_to_remove]
-
-
-        # Create response data with posts and their respective authorized authors
-        response_data = {
-            'posts': filtered_posts,  
-            'authorized_authors_per_post': authorized_authors_per_post
-        }        
-        return Response(response_data, status=status.HTTP_200_OK)
+        serializer = PostSerializer(posts, many=True, context={'viewer_id': current_author.id})
+        return Response({'posts': serializer.data}, status=status.HTTP_200_OK)
     
 #endregion
 

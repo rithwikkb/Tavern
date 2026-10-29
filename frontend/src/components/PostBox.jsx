@@ -6,9 +6,16 @@ import { fullDate, timeAgo } from '../utils/timeAgo';
 import '../styles/components/PostBox.css';
 import LikeButton from './LikeButton';
 import CommentsModal from './CommentsModal';
-import { BorderColor } from '@mui/icons-material';
+import { BorderColor, Group, Link as LinkIcon, Public } from '@mui/icons-material';
 import shareLinkIcon from '../assets/share_link.png';
 import unknownUser from  '../assets/unknownUser.png';
+
+// who can see a post, shown next to its timestamp
+const VISIBILITY = {
+  PUBLIC: { label: 'Public', Icon: Public, hint: 'Anyone can see this post' },
+  FRIENDS: { label: 'Friends', Icon: Group, hint: 'Only mutual friends can see this post' },
+  UNLISTED: { label: 'Unlisted', Icon: LinkIcon, hint: 'Shown to followers and anyone with the link' },
+};
 
 const PostBox = ({ post, poster }) => {
   const [showCopyNotification, setShowCopyNotification] = useState(false); // State for notification
@@ -22,6 +29,7 @@ const PostBox = ({ post, poster }) => {
   const postLink = `${window.location.origin}/post/${postSerial}`;
   // your own posts can be edited wherever they appear (feed, profiles, shared links)
   const isOwnPost = authorId === Cookies.get('author_id');
+  const visibility = VISIBILITY[post.visibility];
 
   const handleCopyLink = () => {
     navigator.clipboard
@@ -50,7 +58,15 @@ const PostBox = ({ post, poster }) => {
           <Link to={`/profile/${authorId}`} className="poster-name-link">
             <h4>{posterName}</h4>
           </Link>
-          <p title={fullDate(post.published)}>{timeAgo(post.published)}</p>
+          <div className="post-meta">
+            <span title={fullDate(post.published)}>{timeAgo(post.published)}</span>
+            {visibility && (
+              <span className="post-visibility" title={visibility.hint}>
+                <visibility.Icon className="post-visibility-icon" aria-hidden="true" />
+                {visibility.label}
+              </span>
+            )}
+          </div>
         </div>
         {isOwnPost && (
           <div className="post-edit">

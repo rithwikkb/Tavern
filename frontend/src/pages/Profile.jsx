@@ -27,7 +27,6 @@ const Profile = () => {
   const [authorProfileData, setAuthorProfileData] = useState(null);
   const [authorCurrentData, setAuthorCurrentData] = useState(null);
 
-  const [selectedFilter, setSelectedFilter] = useState('Public');
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -139,12 +138,13 @@ const Profile = () => {
   const hasGithub =
     /^https?:\/\//i.test(profileData.github || '') &&
     !/^https?:\/\/github\.com\/?$/.test(profileData.github);
-  const filteredPosts =
-  selectedFilter === 'Public'
-    ? profileData.public_posts || []
-    : selectedFilter === 'Friends'
-    ? profileData.friends_posts || []
-    : [...(profileData.unlisted_posts || []), ...(profileData.shared_posts || [])];
+  // one timeline of every post you're allowed to see, newest first; each card shows its visibility
+  const posts = [
+    ...(profileData.public_posts || []),
+    ...(profileData.friends_posts || []),
+    ...(profileData.unlisted_posts || []),
+    ...(profileData.shared_posts || []),
+  ].sort((a, b) => new Date(b.published) - new Date(a.published));
 
   return (
     <div className="profile-page">
@@ -222,39 +222,9 @@ const Profile = () => {
         </div>
       </div>
 
-      <div className="profile-filter-options">
-        <h3
-          onClick={() => setSelectedFilter('Public')}
-          style={{
-            opacity: selectedFilter === 'Public' ? '100%' : '50%',
-            cursor: 'pointer',
-          }}
-        >
-          Public
-        </h3>
-        <h3
-          onClick={() => setSelectedFilter('Friends')}
-          style={{
-            opacity: selectedFilter === 'Friends' ? '100%' : '50%',
-            cursor: 'pointer',
-          }}
-        >
-          Friends
-        </h3>
-        <h3
-          onClick={() => setSelectedFilter('Unlisted')}
-          style={{
-            opacity: selectedFilter === 'Unlisted' ? '100%' : '50%',
-            cursor: 'pointer',
-          }}
-        >
-          Unlisted
-        </h3>
-      </div>
-
       <div className="posts-section">
-        {filteredPosts.length > 0 ? (
-          filteredPosts.map((post) => (
+        {posts.length > 0 ? (
+          posts.map((post) => (
             <PostBox
               key={post.id}
               post={post}

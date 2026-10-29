@@ -369,18 +369,3 @@
   color: #212529;
 }
 
-.profile-filter-options {
-  display: flex;
-  justify-content: flex-start;
-  gap: 20px;
-  margin-left: 10%;
-  margin-top: 20px;
-}
-
-.profile-filter-options h3 {
-  font-size: 16px;
-  cursor: pointer;
-  transition: opacity 0.3s ease;
-  font-family: 'Fredoka', sans-serif;
-  font-size: 13px;
-}
