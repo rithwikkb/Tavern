@@ -197,6 +197,23 @@
   margin: 0 20px 0 0;
 }
 
+.copy-profile-link {
+  margin-top: 10px;
+  background-color: #f7ebc9;
+  color: #000;
+  border: 2px solid #000;
+  border-radius: 30px;
+  padding: 6px 18px;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.copy-profile-link:hover {
+  background-color: #d3ba46;
+}
+
 .links-details a {
   color: #000;
   font-weight: 600;

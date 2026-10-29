@@ -59,6 +59,8 @@ def create_author(author_data, request, user):
 # View for handling login functionality
 class LoginView(APIView):
     permission_classes = [AllowAny]  # No authentication required to access this view
+    # ignore any (possibly expired) token the browser sends along, so it can't block logging in
+    authentication_classes = []
     # slow down password guessing
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'login'
@@ -128,6 +130,7 @@ class LoginView(APIView):
 class SignUpView(APIView):
     http_method_names = ["post"]  # Only POST requests allowed
     permission_classes = [AllowAny]  # No authentication required for signup
+    authentication_classes = []  # a stale token from an old session shouldn't block signing up
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'signup'
 
@@ -655,6 +658,7 @@ MAX_PROFILE_IMAGE_BYTES = 5 * 1024 * 1024
 
 class ProfileImageUploadView(APIView):
     permission_classes = [AllowAny]  # Signup uploads the picture before the account exists
+    authentication_classes = []
     # Limit uploads per client so the endpoint can't be used as free image hosting
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'image_upload'

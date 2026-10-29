@@ -618,3 +618,20 @@ class SeedDemoTest(TestCase):
         with self.assertRaises(CommandError):
             self.seed()
 
+
+class StaleTokenLoginTest(TestCase):
+    """An expired/invalid token left in the browser must not stop someone logging in or signing up."""
+    def test_login_and_signup_ignore_invalid_token(self):
+        user = User.objects.create_user(username="returning", password="Tavern-strong-pass-42")
+        Author.objects.create(display_name="Returning", host="http://testserver", user=user)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer not.a.valid.token")
+
+        response = client.post("/api/login/", {"username": "returning", "password": "Tavern-strong-pass-42"}, format="json")
+        self.assertEqual(response.status_code, 200)
+
+        response = client.post("/api/signup/", {
+            "username": "newcomer", "email": "n@example.com", "password": "Tavern-strong-pass-42", "displayName": "N",
+        }, format="json")
+        self.assertEqual(response.status_code, 201)
+

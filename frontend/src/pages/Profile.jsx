@@ -16,6 +16,7 @@ const Profile = () => {
   const { authorId } = useParams();
   const currentUserId = Cookies.get('author_id');
   const [profileData, setProfileData] = useState(null);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [currentProfileData, setcurrentProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -125,6 +126,18 @@ const Profile = () => {
   const isCurrentUser = currentUserId === authorId;
 
   // new accounts default to the bare "https://github.com/" link
+  // share this profile without showing a long raw URL on the page
+  const handleCopyProfileLink = () => {
+    const profileUrl = `${window.location.origin}/profile/${profileData.id.replace(/\/$/, '').split('/').pop()}`;
+    navigator.clipboard
+      .writeText(profileUrl)
+      .then(() => {
+        setLinkCopied(true);
+        setTimeout(() => setLinkCopied(false), 2000);
+      })
+      .catch((err) => console.error('Failed to copy link: ', err));
+  };
+
   // only render real web links (never javascript: or other schemes)
   const hasGithub =
     /^https?:\/\//i.test(profileData.github || '') &&
@@ -202,7 +215,7 @@ const Profile = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    {profileData.github}
+                    {profileData.github.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '')}
                   </a>
                 ) : (
                   'Not linked'
@@ -210,16 +223,9 @@ const Profile = () => {
               </p>
             </div>
             <div className="links-details">
-              <p>
-                Profile Link:{' '}
-                <a
-                  href={`${new URL(profileData.host).origin}/profile/${profileData.id.endsWith('/') ? profileData.id.slice(0, -1).split('/').pop() : profileData.id.split('/').pop()}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {`${new URL(profileData.host).origin}/profile/${profileData.id.endsWith('/') ? profileData.id.slice(0, -1).split('/').pop() : profileData.id.split('/').pop()}`}
-                </a>
-              </p>
+              <button className="copy-profile-link" type="button" onClick={handleCopyProfileLink}>
+                {linkCopied ? 'Link copied!' : 'Copy profile link'}
+              </button>
             </div>
           </div>
         </div>
