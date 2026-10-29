@@ -23,16 +23,37 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-m$0+uvp+z$hltiosb1m0xz4h+0xq8c5bp#w!788p2cart9(4!3'
+# Set DJANGO_SECRET_KEY in the environment for any deployed instance.
+SECRET_KEY = os.environ.get(
+    "DJANGO_SECRET_KEY",
+    "django-insecure-local-dev-only-key-do-not-use-in-production",
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() in ("1", "true", "yes")
 
-ALLOWED_HOSTS = ["*"]
+# Comma-separated list of hostnames, e.g. "tavern.onrender.com"
+ALLOWED_HOSTS = [
+    h.strip()
+    for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    if h.strip()
+]
 
+# Render sets this automatically for web services
+RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
+# Origins allowed to POST forms (e.g. the admin login) over HTTPS
+CSRF_TRUSTED_ORIGINS = [f"https://{h}" for h in ALLOWED_HOSTS if h not in ("localhost", "127.0.0.1")]
+
+# The React frontend is served from the same origin, so CORS is only needed for local dev
 CORS_ALLOW_CREDENTIALS = True
-
-CORS_ALLOW_ALL_ORIGINS = True 
+CORS_ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get("DJANGO_CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+    if o.strip()
+]
 
 # Application definition
 
@@ -52,7 +73,6 @@ INSTALLED_APPS = [
     'posts',
     'users',
     'stream',
-    'node',
     ]
 
 MIDDLEWARE = [
@@ -61,7 +81,7 @@ MIDDLEWARE = [
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'mistyrose.middleware.TrailingSlashMiddleware', #Pls work
+    'mistyrose.middleware.TrailingSlashMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -96,8 +116,8 @@ TEMPLATES = [
 WSGI_APPLICATION = 'mistyrose.wsgi.application'
 
 # Database
-if os.environ.get("DATABASE_URL") != None:
-    # Running on Heroku
+if os.environ.get("DATABASE_URL"):
+    # Running against a hosted Postgres database (e.g. Neon, Supabase, Render)
     DATABASES = {
         "default": dj_database_url.config(
             conn_max_age=600,
@@ -145,8 +165,17 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR.parent, "frontend", "build", "static"),
 ]
 
+# Serve root-level files from the React build (favicon.ico, manifest.json, robots.txt, ...)
+WHITENOISE_ROOT = os.path.join(BASE_DIR.parent, "frontend", "build")
 
-
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}
 
 
 # Default primary key field type
@@ -160,7 +189,6 @@ MEDIA_ROOT = BASE_DIR / 'media'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-        'node.authentication.NodeAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
@@ -182,5 +210,12 @@ SIMPLE_JWT = {
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 APPEND_SLASH = True
 
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+# New signups can log in right away unless this is enabled (then an admin must activate them)
+SIGNUP_REQUIRES_APPROVAL = os.environ.get("SIGNUP_REQUIRES_APPROVAL", "False").lower() in ("1", "true", "yes")
+
 # Imgur API
-IMGUR_CLIENT_ID = 'd205e7a60257aba'
+IMGUR_CLIENT_ID = os.environ.get("IMGUR_CLIENT_ID", "d205e7a60257aba")

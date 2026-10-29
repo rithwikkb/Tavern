@@ -1,25 +1,18 @@
-from urllib.parse import urlparse
-import base64
-import requests
 from rest_framework import status
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.contrib.contenttypes.models import ContentType
 
 from users.models import Author, Follows
-from node.models import Node
 from posts.models import Post, Comment, Like
 from .serializers import FollowSerializer
 from posts.serializers import PostSerializer, CommentSerializer, LikeSerializer
 
 def handle_follow_request(request, author):
-  serializer = FollowSerializer(data=request.data)
-
   # Retrieve actor and object data, and handle None case
   actor_data = request.data.get('actor')
   object_data = request.data.get('object')
-  print(f"THIS IS ACTOR DATA {actor_data}")
-  print(f"THIS IS OBJECT DATA {object_data}")
+
   # Check if actor_data and object_data exist
   if actor_data is None or 'id' not in actor_data:
       return Response({"error": "'actor' or 'actor.id' is missing from the request"}, status=status.HTTP_400_BAD_REQUEST)
@@ -31,115 +24,21 @@ def handle_follow_request(request, author):
   actor_id = actor_data['id'].rstrip('/').split('/')[-1].rstrip('/')
   object_id = object_data['id'].rstrip('/').split('/')[-1].rstrip('/')
 
-  print(f"IN THE FOLLOW REQUEST ACTOR ID {actor_data['id']} AND OBJECT ID {object_data['id']}")
-#   object_id = object_data['page'].rstrip('/').split('/')[-1]
-  print(f"THIS IS OBJECT ID {object_id}")
-  # Extract host information and normalize
-  actor_host = urlparse(actor_data['host']).netloc  # Extracts only the netloc (e.g., "127.0.0.1:8000")
-  object_host = urlparse(object_data['host'])
-  object_hostn = urlparse(object_data['host']).netloc
-  object_host_with_scheme = f"{object_host.scheme}://{object_host.netloc}"
-  current_host = request.get_host()
-  # Determine if actor is remote or local 
-  print(f"actor_host: {actor_host} vs. current_host: {current_host}")
-  is_remote_actor = actor_host != current_host
+  serializer = FollowSerializer(data=request.data)
+  existing_follow = Follows.objects.filter(
+      local_follower_id=actor_id,
+      followed_id=author,
+  ).first()
 
-  print("WE GOT HERE")
+  if existing_follow:
+      return Response(FollowSerializer(existing_follow).data, status=status.HTTP_200_OK)
 
-  if is_remote_actor:
-      # Populate the `Author` table with remote `actor` details if it doesn't exist
-      remote_author = Author.objects.get_or_create(
-          id=actor_id,
-          defaults={
-              "host": actor_data['host'],
-              "display_name": actor_data.get('displayName'),
-              "url": actor_data['id'],
-              "github": actor_data.get('github', ""),
-              "profile_image": actor_data.get('profileImage', ""),
-              "page": actor_data.get('page', ""),
-          }
-      )
-      print(f"THE REMOTE AUTHOR IS {remote_author}")
-
-
-  # Determine if the `object` (followed author) is local or remote
-  print(f"object_host: {object_hostn} vs. current_host: {current_host}")
-  is_remote_object = object_hostn != current_host
-
-  if is_remote_object:
-      # node = Node.objects.get(host=str(object_host_with_scheme) + "/")
-      node = Node.objects.filter(remote_node_url=object_host_with_scheme).first()
-      print("node3",node)
-      if not node:
-          print("node123",node)
-          return Response({"error": "Node not found"}, status=status.HTTP_404_NOT_FOUND)
-      remote_inbox_url = f"{object_data['host'].rstrip('/')}/authors/{object_id}/inbox"
-      print(f"THIS IS THE REMOTE INBOX URL {remote_inbox_url}")
-      parsed_url = urlparse(request.build_absolute_uri())
-      host_with_scheme = f"{parsed_url.scheme}://{parsed_url.netloc}"
-      credentials = f"{node.remote_username}:{node.remote_password}"
-      base64_credentials = base64.b64encode(credentials.encode()).decode("utf-8")
-      # 1. Send follow request to the remote node's inbox
-      
-      follow_request_payload = {
-          "type": "follow",
-          "summary": f"{actor_data['id']} wants to follow {object_data['id']}",  # Use ID for clarity
-          "actor": actor_data,  # Send full actor data
-          "object": object_data  # Send full object data
-      }
-
-      print(f"THIS IS THE FOLLOW REQUEST PAYLOAD {follow_request_payload}")
-
-      print(f"REQUEST remote_inbox_url: {remote_inbox_url} host_with_scheme: {host_with_scheme} FUCK YOU: {follow_request_payload}")
-      try:
-          # Send POST request to the remote node
-          response = requests.post(
-              remote_inbox_url,
-            #   params={"host": host_with_scheme},
-              headers={"Authorization": f"Basic {base64_credentials}"},
-              json=follow_request_payload,
-          )
-
-          print(f"THIS IS THE RESPONSE FROM THEIR INBOX {response}")
-          if response.status_code not in [200, 201]:
-              return Response({"error": f"Failed to send follow request to remote node {response}"}, status=status.HTTP_400_BAD_REQUEST)
-      except requests.RequestException as e:
-          return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-      # 2. Automatically accept the follow request locally
-      local_follower = Author.objects.get(id=actor_id)  # Fetch local `actor`
-      Follows.objects.create(
-          local_follower_id=local_follower,  # Set local actor
-          remote_follower_url=actor_data.get('id'),  # Store actor's full ID
-          followed_id=author,
-          status="ACCEPTED",
-          is_remote=True  # Mark as a remote follow request
-      )
-
-      return Response({"message": "Follow request sent to remote node and accepted locally."}, status=status.HTTP_201_CREATED)
-
-  else:
-      # Local follow request handling
-      serializer = FollowSerializer(data=request.data)
-      existing_follow = Follows.objects.filter(
-          local_follower_id=actor_id,
-          followed_id=author,
-      ).first()
-
-      if existing_follow:
-          return Response(FollowSerializer(existing_follow).data, status=status.HTTP_200_OK)
-
-      if serializer.is_valid():
-          serializer.validated_data['local_follower_id']['id'] = actor_id
-          serializer.validated_data['followed_id']['id'] = object_id
-          print("is_remote_actor:",is_remote_actor)
-          if is_remote_actor:
-            serializer.validated_data['is_remote'] = True
-          serializer.save()
-          return Response(serializer.data, status=status.HTTP_201_CREATED)
-      else:
-          print("error")
-          return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+  if serializer.is_valid():
+      serializer.validated_data['local_follower_id']['id'] = actor_id
+      serializer.validated_data['followed_id']['id'] = object_id
+      serializer.save()
+      return Response(serializer.data, status=status.HTTP_201_CREATED)
+  return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 def handle_post_inbox(request, post_author, author_id):
   # create post object type and user.

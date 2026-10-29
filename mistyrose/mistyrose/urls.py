@@ -40,11 +40,10 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/posts/', include('posts.urls')),
     path('api/users/', include('users.urls')),
-    path('swagger', schema_view.with_ui('swagger', cache_timeout=0), name="swagger"),
+    path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name="swagger"),
     path('api/liked/', include('posts.liked_urls')), #api/liked urls
     path('api/comment/', include('posts.comment_urls')), #api/comment urls
     path('api/commented/', include('posts.comment_urls')), #TODO: asked if there is an error in the project description, is this supposed to be the same one as the comments/comment_fqid?  
-    path('api/node/', include('node.urls')),
     path('api/authors/<path:author_id>/inbox/', include('stream.urls')),
     path('api/authors/<path:author_id>/inbox', include('stream.urls')),
     path('api/authors/', include('posts.authors_urls')), #api/authors/ urls for posts, likes, comments
@@ -52,10 +51,10 @@ urlpatterns = [
     path('', include('users.urls')),
 ]+ static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
-heroku_react_django_urls = [
+react_app_urls = [  # let React Router handle every other path
     re_path('.*', TemplateView.as_view(template_name='index.html', content_type='text/html'))
 ]
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-urlpatterns += heroku_react_django_urls
+urlpatterns += react_app_urls

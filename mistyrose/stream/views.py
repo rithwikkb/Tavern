@@ -15,7 +15,6 @@ class InboxView(APIView):
     """
     
     def post(self, request, author_id):
-        print("InboxView - POST - request.data: ", request.data, "author_id: ", author_id)
         try:
             # check if author_id is a URL (FQID) or a uuid (SERIAL)
             if is_fqid(author_id):
@@ -23,9 +22,8 @@ class InboxView(APIView):
                 if not author_id.endswith('/'):
                     author_id += '/'
                 author_id = Author.objects.get(url=author_id).id
-                print("Author:",author_id)
         except:
-            return Response({"error": "InboxView - POST - You didn't give me a valid FQID or SERIAL, babe."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "InboxView - POST - Invalid FQID or SERIAL."}, status=status.HTTP_400_BAD_REQUEST)
         
         object_type = request.data.get('type')
         author = get_object_or_404(Author, id=author_id)
@@ -45,7 +43,7 @@ class InboxView(APIView):
             response = handle_like_inbox(request, author, author_id)
         
         else:
-            return Response({"Error": f"What is a(n) {object_type}? I don't f with that, babe."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"Error": f"Unsupported inbox object type: {object_type}"}, status=status.HTTP_400_BAD_REQUEST)
         
         return response
 
@@ -62,7 +60,7 @@ class FollowRequests(APIView):
                     author_id += '/'
                 author_id = Author.objects.get(url=author_id).id
         except:
-            return Response({"error": "FollowRequests - GET - You didn't give me a valid FQID or SERIAL, babe."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "FollowRequests - GET - Invalid FQID or SERIAL."}, status=status.HTTP_400_BAD_REQUEST)
         author = get_object_or_404(Author, id=author_id)
         pending_follow_requests = Follows.objects.filter(followed_id=author, status='PENDING')
 

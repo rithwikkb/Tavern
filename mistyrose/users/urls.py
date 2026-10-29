@@ -12,7 +12,7 @@ from .views import (
     FollowersDetailView,
     FriendsView,
     FollowingDetailView,
-    GetRemoteAuthorsView
+    GetAllAuthorsView
 )
 
 urlpatterns = [
@@ -21,7 +21,7 @@ urlpatterns = [
     path('verify/', VerifyTokenView.as_view(), name='verify-token'),  # Verify JWT token endpoint
     path('api/signup/', SignUpView.as_view(), name='signup'),  # User signup endpoint
     path('logout/', LogoutView.as_view(), name='logout'),  # User logout endpoint
-    path('api/authors/all/', GetRemoteAuthorsView.as_view(), name='all-authors'),
+    path('api/authors/all/', GetAllAuthorsView.as_view(), name='all-authors'),
    
     path('authors/<str:username>/upload_image/', ProfileImageUploadView.as_view(), name='upload-profile-image'),
    

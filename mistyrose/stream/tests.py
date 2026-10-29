@@ -9,7 +9,6 @@ from rest_framework import status
 from posts.models import Post, Comment, Like
 from django.contrib.contenttypes.models import ContentType
 import base64
-from node.models import Node
 
 # Create your tests here.
 class InboxViewTest(TestCase):
@@ -47,36 +46,30 @@ class InboxViewTest(TestCase):
             }
         }
         
-        # Simulate inserting Node data into the test database
-        Node.objects.create(
-            host='https://testserver',  
-            username='node_user',      
-            password='node_password'  
-        )
-        
-        # Initialize API client
+        # Authenticate as the actor's user
+        self.user = User.objects.create_user(username='actor', password='actorpass')
+        self.actor.user = self.user
+        self.actor.save()
         self.client = APIClient()
-        
-        # Set backend-recognized node authentication credentials
-        credentials = f"node_user:node_password"
-        encoded_credentials = base64.b64encode(credentials.encode()).decode()
-        self.client.credentials(HTTP_AUTHORIZATION=f'Basic {encoded_credentials}')
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
 
         #url
         self.url = reverse('inbox', kwargs={'author_id': self.object.id})
 
-    # def test_create_follow_request_201(self):
-    #     # follow request to inbox test at URL: api/authors/<uuid:author_id>/inbox/
-    #     response = self.client.post(self.url, self.follow_request, format='json')
-    #     # print("Response Data (201):", response.data)
-    #     self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+    def test_create_follow_request_201(self):
+        # follow request to inbox test at URL: api/authors/<uuid:author_id>/inbox/
+        response = self.client.post(self.url, self.follow_request, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        follow = Follows.objects.get(local_follower_id=self.actor, followed_id=self.object)
+        self.assertEqual(follow.status, 'PENDING')
 
-    # def test_create_follow_request_200(self): 
-    #     #make the same request twice -> returns success if requested twice, but wont be created 
-    #     self.client.post(self.url, self.follow_request, format='json')
-    #     response = self.client.post(self.url, self.follow_request, format='json')
-    #     # print("Response Data (200):", response.data)
-    #     self.assertEqual(response.status_code, status.HTTP_200_OK)
+    def test_create_follow_request_200(self): 
+        #make the same request twice -> returns success if requested twice, but wont be created 
+        self.client.post(self.url, self.follow_request, format='json')
+        response = self.client.post(self.url, self.follow_request, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(Follows.objects.filter(local_follower_id=self.actor, followed_id=self.object).count(), 1)
 
 class GetFollowRequestsTest(TestCase):
     def setUp(self):
@@ -159,14 +152,6 @@ class LikedViewTest(TestCase):
             content_type="text/plain",
         )
 
-        # Insert Node data
-        Node.objects.create(
-            host='https://testserver',  
-            username='node_user',      
-            password='node_password',  
-            is_whitelisted=True,       
-            is_authenticated=True      
-        )
 
         # Initialize API client
         self.client = APIClient()
@@ -223,14 +208,6 @@ class CommentedViewTestCase(TestCase):
             visibility='PUBLIC'
         )
 
-        # Insert Node data
-        Node.objects.create(
-            host='https://testserver',  
-            username='node_user',      
-            password='node_password',  
-            is_whitelisted=True,      
-            is_authenticated=True     
-        )
 
         # Initialize API client
         self.client = APIClient()

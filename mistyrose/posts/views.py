@@ -5,7 +5,6 @@ from django.shortcuts import render
 import requests
 
 from users.utils import is_fqid
-from .utils import get_remote_friends, post_to_remote_inboxes, get_remote_followers_you
 from users.models import Author
 from rest_framework import status
 from rest_framework.views import APIView
@@ -17,7 +16,6 @@ from django.shortcuts import get_object_or_404
 from django.contrib.contenttypes.models import ContentType
 from .models import Post
 from users.models import Author, Follows  
-from node.models import Node
 from .pagination import LikesPagination, CustomPostsPagination
 import urllib.parse  # asked chatGPT how to decode the URL-encoded FQID 2024-11-02
 from django.http import FileResponse
@@ -25,44 +23,10 @@ import requests
 from requests.auth import HTTPBasicAuth #basic auth
 from django.db import transaction #transaction requests so that if something happens in the middle, it'll be rolled back
 from urllib.parse import unquote, urlparse
-from node.authentication import NodeAuthentication
 from rest_framework_simplejwt.authentication import JWTAuthentication  
 from rest_framework.generics import ListAPIView  
 from rest_framework.pagination import PageNumberPagination
 
-
-
-def handle_remote_inboxes(post, request, object_data, author):
-    '''
-    post - the post model object that is being posted, commented, or liked
-    request - the api request 
-    object_data - the post, comment, data to send to the remote inbox
-    author - the author who is sending the post
-    ''' 
-    #author is the one sending the request out
-    #remote_authors = get_remote_authors(request) 
-
-    if object_data['type'] == 'post':
-        #format id
-        object_data['id'] = f"{author.host.rstrip('/')}/authors/{author.id}/posts/{post.id}/"
-
-    print(f"WE ARE SENDING THIS {object_data}")
-
-                
-    if post.visibility == 'PUBLIC' or post.visibility == 'DELETED':
-        # send to remote follower inboxes if public post
-        remote_followers = get_remote_followers_you(author)
-        post_to_remote_inboxes(request, remote_followers, object_data)
-        
-    elif post.visibility == 'FRIENDS':
-        # send only to remote friends inboxes if friends post
-        remote_friends = get_remote_friends(author)
-        post_to_remote_inboxes(request, remote_friends, object_data)
-
-    elif post.visibility == 'UNLISTED':
-        # Send to remote followers
-        remote_followers = get_remote_followers_you(author)
-        post_to_remote_inboxes(request, remote_followers, object_data)
 
 
 #region Post Views
@@ -187,7 +151,6 @@ class PostDetailsView(APIView):
         Update a post instance by author ID & post ID.
         """
         with transaction.atomic():
-            print("In PostDetailsView - PUT")
             try:
                 # check if author_serial is a URL (FQID) or a uuid (SERIAL)
                 # check if post_serial is a URL (FQID) or a uuid (SERIAL)
@@ -202,51 +165,27 @@ class PostDetailsView(APIView):
                         post_serial += "/"
                     post_serial = Post.objects.get(url=post_serial).id
             except:
-                print("In PostDetailsView - PUT - You didn't give me a valid FQID or SERIAL, babe.")
-                return Response({"error": "PostDetailsView - PUT - You didn't give me a valid FQID or SERIAL, babe."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "PostDetailsView - PUT - Invalid FQID or SERIAL."}, status=status.HTTP_400_BAD_REQUEST)
             
             # get the post instance
             try:
-                print(f"author_serial: {author_serial}, post_serial: {post_serial}")
                 old_post = Post.objects.get(id=post_serial, author_id=author_serial)
             except Post.DoesNotExist:
-                return Response({"error": f"What post? {post_serial} not found, babe."}, status=status.HTTP_404_NOT_FOUND)
+                return Response({"error": f"Post {post_serial} not found."}, status=status.HTTP_404_NOT_FOUND)
             
             # get the author instance
             try:
                 author = Author.objects.get(id=author_serial)
             except Author.DoesNotExist:
-                return Response({"error": f"Who dat? {author_serial} not found, babe."}, status=status.HTTP_404_NOT_FOUND)
+                return Response({"error": f"Author {author_serial} not found."}, status=status.HTTP_404_NOT_FOUND)
             
             # serialize the updated post
             serializer = PostSerializer(old_post, data=request.data)
             # update post locally
             if serializer.is_valid():
-                updated_post = serializer.save(author_id=author)
-                updated_post_data = PostSerializer(updated_post).data
+                serializer.save(author_id=author)
             else:
-                return Response({"error": f"Couldn't update the post locally or remotely, babe. Your request was messed up: {serializer.errors}"}, status=status.HTTP_400_BAD_REQUEST)
-            
-            # get remote authors and send post to remote inboxes
-            try:
-                handle_remote_inboxes(updated_post, request, updated_post_data, author)
-
-                # remote_authors = get_remote_authors(request)
-                
-                # if updated_post.visibility == 'PUBLIC' or updated_post.visibility == 'DELETED':
-                #     # send to all remote inboxes if public post
-                #     post_to_remote_inboxes(request, remote_authors, updated_post_data)
-                    
-                # elif updated_post.visibility == 'FRIENDS':
-                #     # send only to remote friends if friends post
-                #     remote_friends = get_remote_friends(author)
-                #     post_to_remote_inboxes(request, remote_friends, updated_post_data)   
-                         
-            except Exception as e:
-                return Response(
-                    {"error": f"Couldn't send the updated post to remote inboxes, babe. {str(e)}"},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+                return Response({"error": f"Couldn't update the post: {serializer.errors}"}, status=status.HTTP_400_BAD_REQUEST)
             
             return Response(serializer.data, status=status.HTTP_200_OK)
         
@@ -470,7 +409,7 @@ class AuthorPostsView(APIView):
                     author_serial += "/"
                 author_serial = Author.objects.get(url=author_serial).id
         except:
-            return Response({"error": "AuthorPostsView - GET - You didn't give me a valid FQID or SERIAL, babe."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "AuthorPostsView - GET - Invalid FQID or SERIAL."}, status=status.HTTP_400_BAD_REQUEST)
         
         posts = Post.objects.filter(author_id=author_serial)
 
@@ -578,7 +517,7 @@ class AuthorPostsView(APIView):
 
     def post(self, request, author_serial):
         '''
-        create post locally and send to remote followers inboxes if public, and remote friends if friends only post
+        create a post for the author
         '''
         with transaction.atomic(): #a lot of datbase operations, better to do transaction so that if something fails, we can rollback instead of half updates
             try:
@@ -589,47 +528,20 @@ class AuthorPostsView(APIView):
                         author_serial += "/"
                     author_serial = Author.objects.get(url=author_serial).id
             except:
-                return Response({"error": "AuthorPostsView - POST - You didn't give me a valid FQID or SERIAL, babe."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "AuthorPostsView - POST - Invalid FQID or SERIAL."}, status=status.HTTP_400_BAD_REQUEST)
             
             # create post locally first 
             try:
                 author = Author.objects.get(id=author_serial)
             except Author.DoesNotExist:
-                return Response({"error": f"Who dat? {author_serial} not found, babe."}, status=status.HTTP_404_NOT_FOUND)
+                return Response({"error": f"Author {author_serial} not found."}, status=status.HTTP_404_NOT_FOUND)
 
             serializer = PostSerializer(data=request.data)
             # create post locally
             if serializer.is_valid():
-                post = serializer.save(author_id=author)  # Associate the post with the author
+                serializer.save(author_id=author)  # Associate the post with the author
             else:
-                return Response({"error": f"Couldn't create the post locally or remotely, babe. Your request was messed up: {serializer.errors}"}, status=status.HTTP_400_BAD_REQUEST)
-            
-            # get remote authors and send post to remote inboxes 
-            try:
-                # Prepare post data 
-                post_data = PostSerializer(post).data
-                
-                # if post.visibility == 'PUBLIC':
-                #     # send to all remote inboxes if public post
-                #     post_to_remote_inboxes(request, remote_authors, post_data)
-                    
-                # elif post.visibility == 'FRIENDS':
-                #     remote_friends = get_remote_friends(author)
-                    
-                #     # Send only to remote friends' inboxes
-                #     post_to_remote_inboxes(request, remote_friends, post_data)
-
-                # elif post.visibility == 'UNLISTED':
-                #     # Send to remote followers
-                #     remote_followers = get_remote_followers_you(author)
-                #     post_to_remote_inboxes(request, remote_followers, post_data)
-                handle_remote_inboxes(post, request, post_data, author)
-
-            except Exception as e:
-                return Response(
-                    {"error": f"Couldn't send the post to remote inboxes, babe. {str(e)}"},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+                return Response({"error": f"Couldn't create the post: {serializer.errors}"}, status=status.HTTP_400_BAD_REQUEST)
             
             return Response(serializer.data, status=status.HTTP_201_CREATED)
       
@@ -654,7 +566,7 @@ class PostImageView(APIView):
                     post_serial += "/"
                 post_serial = Post.objects.get(url=post_serial).id
         except:
-            return Response({"error": "PostImageView - GET - You didn't give me a valid FQID or SERIAL, babe."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "PostImageView - GET - Invalid FQID or SERIAL."}, status=status.HTTP_400_BAD_REQUEST)
         
         author = get_object_or_404(Author, id=author_serial)
         post = get_object_or_404(Post, author_id=author, id=post_serial)
@@ -710,56 +622,14 @@ class PublicPostsView(APIView):
         posts_to_remove = []
         filtered_posts = []
         for post_data in serializer.data:
-            # TODO: TEST THIS MORE THOROUGHLY
-            # if markdown contains image, try to get the image
-            if post_data.get('contentType').endswith('markdown') and '![' in post_data['content']:
-                try:
-                    # find node by host
-                    author_host = urlparse(post_data['author']['host'])
-                    host_with_scheme = f"{author_host.scheme}://{author_host.netloc}"
-                    print(f"HOST WITH SCHEME {host_with_scheme}")
-                    node = Node.objects.get(remote_node_url=host_with_scheme)
-                    image_url = post_data['content'].split('](')[1].split(')')[0]
-                    print(f"IMAGE URL {image_url}")
-                    credentials = f"{node.remote_username}:{node.remote_password}"
-                    base64_credentials = base64.b64encode(credentials.encode()).decode("utf-8")
-                    
-                    response = requests.get(image_url, headers={'Authorization': f'Basic {base64_credentials}'})
-                    if response.status_code == 200:
-                        print(f"RESPONSE TO GET IMG {response.json()}")
-                        # check if response.json() is a base64 encoded image
-                        if response.json().startswith('data:image'):
-                            # base64 encoded image is returned
-                            # replace the image url with the base64 encoded image
-                            post_data['content'] = post_data['content'].replace(image_url, f"{response.json()}")
-                            # save the post data
-                            post = Post.objects.get(url=post_data['id'].rstrip('/') + '/')
-                            post.content = post_data['content']
-                            post.save()
-                except:
-                    pass
-                    
-            
             post_visibility = post_data.get('visibility')
             post_author_id = uuid.UUID(post_data.get('author').get('id').rstrip('/').split('/authors/')[-1])
             authorized_authors = set()
 
             if post_visibility == 'PUBLIC':
-                post_author_url = post_data.get('author').get('id')
-                parsed_url = urlparse(post_author_url)
-                author_host = f"{parsed_url.scheme}://{parsed_url.hostname}"
+                # every author lives on this node, so public posts are visible to everyone
+                authorized_authors.add(current_author.id)
 
-                current_host = request.get_host().rstrip('/')
-                current_host_full = f"{request.scheme}://{current_host}"
-
-                print(f"PUBLIC POSTS AUTHOR_HOST {author_host} AND CURRENT HOST {current_host_full}")
-                if author_host == current_host_full: #its a local author
-                    authorized_authors.add(current_author.id)
-                else:  
-                    print(f"REMOTE THEREFORE FOLLOWING IDS {following_ids} WITH {post_author_id}")
-                    if post_author_id in following_ids:
-                        authorized_authors.add(current_author.id)
-                    
             elif post_visibility == 'UNLISTED':
                 accepted_following_ids = Follows.objects.filter(
                 local_follower_id=current_author, 
@@ -786,7 +656,6 @@ class PublicPostsView(APIView):
 
 
             # Include visibility_type in the authorized_authors_per_post dictionary
-            print(f"AUTHORIZED AUTHORS FOR STREAM {authorized_authors}")
             if authorized_authors: #if list is not empty
                 authorized_authors_per_post.append({
                     'post_id': post_data['id'], 
@@ -798,7 +667,6 @@ class PublicPostsView(APIView):
 
             filtered_posts = [post for post in serializer.data if post['id'] not in posts_to_remove]
 
-        print(f"BIG DICTIONARY {authorized_authors_per_post}")
 
         # Create response data with posts and their respective authorized authors
         response_data = {
@@ -826,7 +694,7 @@ class CommentedView(APIView):
                     author_serial += "/"
                 author_serial = Author.objects.get(url=author_serial).id
         except:
-            return Response({"error": "CommentedView - POST - You didn't give me a valid FQID or SERIAL, babe."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "CommentedView - POST - Invalid FQID or SERIAL."}, status=status.HTTP_400_BAD_REQUEST)
         
         #author who created the comment
         author = get_object_or_404(Author, id=author_serial)
@@ -854,31 +722,6 @@ class CommentedView(APIView):
         else:
             return Response(comment_serializer.errors, status=status.HTTP_400_BAD_REQUEST) 
 
-        try:
-            comment_data = CommentSerializer(comment).data
-            print(f"COMMENT_DATA {comment_data}")
-            handle_remote_inboxes(post, request, comment_data, author)
-            # forward to correct remote inboxes
-            # remote_authors = get_remote_authors(request)
-
-            # #prepare comment data
-            
-            # print(f"COMMENT DATA REQUEST BODY {comment_data}")
-
-            # if post.visibility == 'PUBLIC':
-            #     post_to_remote_inboxes(request, remote_authors, comment_data)
-
-            # elif post.visibility == 'FRIENDS':
-            #     remote_friends = get_remote_friends(author)
-
-            #     post_to_remote_inboxes(request, remote_friends, comment_data)
-
-        except Exception as e:
-            return Response(
-                {"error": f"Couldn't send the comment to remote inboxes, babe. {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )  
-    
         return Response(comment_serializer.data, status=status.HTTP_201_CREATED)   
         
         
@@ -894,7 +737,7 @@ class CommentedView(APIView):
                     author_serial += "/"
                 author_serial = Author.objects.get(url=author_serial).id
         except:
-            return Response({"error": "CommentedView - GET - You didn't give me a valid FQID or SERIAL, babe."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "CommentedView - GET - Invalid FQID or SERIAL."}, status=status.HTTP_400_BAD_REQUEST)
         
         author = get_object_or_404(Author, id=author_serial)
 
@@ -966,7 +809,7 @@ class CommentView(APIView):
                     comment_serial += "/"
                 comment_serial = Comment.objects.get(url=comment_serial).id
         except:
-            return Response({"error": "CommentView - GET - You didn't give me a valid FQID or SERIAL, babe."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "CommentView - GET - Invalid FQID or SERIAL."}, status=status.HTTP_400_BAD_REQUEST)
         
         comment = get_object_or_404(Comment, id=comment_serial)
         serializer = CommentSerializer(comment)
@@ -988,7 +831,7 @@ class CommentsView(APIView):
                     post_serial += "/"
                 post_serial = Post.objects.get(url=post_serial).id
         except:
-            return Response({"error": "CommentsView - GET - You didn't give me a valid FQID or SERIAL, babe."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "CommentsView - GET - Invalid FQID or SERIAL."}, status=status.HTTP_400_BAD_REQUEST)
         
         post = get_object_or_404(Post, id=post_serial)
 
@@ -1114,7 +957,7 @@ class LikedView(APIView):
                     author_serial += "/"
                 author_serial = Author.objects.get(url=author_serial).id
         except:
-            return Response({"error": "LikedView - POST - You didn't give me a valid FQID or SERIAL, babe."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "LikedView - POST - Invalid FQID or SERIAL."}, status=status.HTTP_400_BAD_REQUEST)
         
         #author who created the like
         author = get_object_or_404(Author, id=author_serial)
@@ -1126,7 +969,6 @@ class LikedView(APIView):
             return Response({"detail: Must be 'like' type"}, status=status.HTTP_400_BAD_REQUEST)
         
         object_url = like_data.get("object") #object can be either a comment or post
-        print(f"OBJECT URL FROM LIKE: {object_url}")
         if not object_url:
             return Response({"Error": "object URL is required."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1160,33 +1002,16 @@ class LikedView(APIView):
         like_serializer = LikeSerializer(data=request.data) #asked chatGPT how to set the host in the serializer, need to add context 2024-11-02
         if like_serializer.is_valid():
 
-            like = like_serializer.save(
+            like_serializer.save(
                 author_id=author,  
                 object_id=object_id,
                 content_type=object_content_type,
                 object_url=object_url_remote
             )
 
-            # #creating Inbox object to forward to correct inbox
-            # post_host = object_url.split("//")[1].split("/")[0]
-            # if post_host != request.get_host():
-            #     # TODO: Part 3-5 post or comment not on our host, need to forward it to a remote inbox
-            #     pass
-            
-            
         else:
             return Response(like_serializer.errors, status=status.HTTP_400_BAD_REQUEST) 
         
-        try:
-            like_data = LikeSerializer(like).data
-            like_data["object"] = like_data["object"].rstrip('/') #for crimson, they can't have / at the end of post object I think
-            print(f"LIKE DATA {like_data}")
-            handle_remote_inboxes(liked_object, request, like_data, author)
-        except Exception as e:
-            return Response(
-                {"error": f"Couldn't send the like to remote inboxes, babe. {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )  
         return Response(like_serializer.data, status=status.HTTP_201_CREATED)   
         
     def get(self, request, author_serial):
@@ -1201,7 +1026,7 @@ class LikedView(APIView):
                     author_serial += "/"
                 author_serial = Author.objects.get(url=author_serial).id
         except:
-            return Response({"error": "LikedView - GET - You didn't give me a valid FQID or SERIAL, babe."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "LikedView - GET - Invalid FQID or SERIAL."}, status=status.HTTP_400_BAD_REQUEST)
         
         author = get_object_or_404(Author, id=author_serial)
         likes = author.likes.all()
@@ -1241,7 +1066,7 @@ class LikeView(APIView):
                     like_serial += "/"
                 like_serial = Like.objects.get(url=like_serial).id
         except:
-            return Response({"error": "LikeView - GET - You didn't give me a valid FQID or SERIAL, babe."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "LikeView - GET - Invalid FQID or SERIAL."}, status=status.HTTP_400_BAD_REQUEST)
         
         like = get_object_or_404(Like, id=like_serial)
         serializer = LikeSerializer(like)
@@ -1269,7 +1094,7 @@ class LikesView(APIView):
                     post_id += "/"
                 post_id = Post.objects.get(url=post_id).id
         except:
-            return Response({"error": "LikesView - GET - You didn't give me a valid FQID or SERIAL, babe."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "LikesView - GET - Invalid FQID or SERIAL."}, status=status.HTTP_400_BAD_REQUEST)
         
         post = get_object_or_404(Post, id=post_id)
 
@@ -1322,7 +1147,7 @@ class LikedCommentsView(APIView):
                     comment_id += "/"
                 comment_id = Comment.objects.get(url=comment_id).id
         except:
-            return Response({"error": "LikedCommentsView - GET - You didn't give me a valid FQID or SERIAL, babe."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "LikedCommentsView - GET - Invalid FQID or SERIAL."}, status=status.HTTP_400_BAD_REQUEST)
         
         post = get_object_or_404(Post, id=post_id)
         comment = get_object_or_404(Comment, id=comment_id, post_id=post)
@@ -1469,7 +1294,7 @@ class GitHubEventsView(APIView):
         }
 
         try:
-            response = requests.get(github_api_url, headers=headers)
+            response = requests.get(github_api_url, headers=headers, timeout=10)
             response.raise_for_status()  # Raise an error for bad responses
             return Response(response.json(), status=status.HTTP_200_OK)
         except requests.exceptions.RequestException as e:

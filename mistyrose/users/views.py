@@ -1,7 +1,6 @@
 from urllib.parse import urlparse
 from django.shortcuts import render
 import os
-from node.authentication import NodeAuthentication
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status, generics
@@ -27,7 +26,6 @@ from django.http import HttpRequest
 from .pagination import AuthorsPagination  
 from posts.serializers import PostSerializer  
 from uuid import UUID 
-from users.utils import get_remote_authors
 from urllib.parse import urlparse
 from rest_framework.exceptions import NotFound
 import urllib.parse
@@ -150,7 +148,8 @@ class SignUpView(APIView):
                     username=username,
                     email=email,
                     password=password,
-                    is_active=False  # Set inactive until admin activates
+                    # Accounts are active immediately; set SIGNUP_REQUIRES_APPROVAL=True to require admin approval
+                    is_active=not settings.SIGNUP_REQUIRES_APPROVAL
                 )
                 user.date_joined = timezone.now()  # Set account creation time
                 user.save()  # Save the User object
@@ -396,21 +395,14 @@ class AuthorEditProfileView(APIView):
 
 
 class AuthorsView(ListAPIView): #used ListAPIView because this is used to handle a collection of model instances AND comes with pagination
-    authentication_classes = [NodeAuthentication, JWTAuthentication]
+    authentication_classes = [JWTAuthentication]
     #asked chatGPT how to get the authors using ListAPIView 2024-10-18
     # variables that ListAPIView needs
-    # only get authors on our own node
     serializer_class = AuthorSerializer
     pagination_class = AuthorsPagination
     
     def get_queryset(self):
-        # only get authors who are on this node
-        request_host = self.request.get_host().rstrip('/')
-
-        authors = Author.objects.all()
-        authors = [author for author in authors if urlparse(author.host).netloc.rstrip('/') == request_host]
-        
-        return authors
+        return Author.objects.all().order_by('created_at')
     
     def get(self, request, *args, **kwargs): #args and kwargs for the page and size 
         #retrieve all profiles on the node (paginated)
@@ -424,30 +416,12 @@ class AuthorsView(ListAPIView): #used ListAPIView because this is used to handle
 
         return response
     
-class GetRemoteAuthorsView(APIView): 
-    # getting a consolidated list of remote authors from all nodes as well as the authors on this node
-    #authentication_classes = [NodeAuthentication, JWTAuthentication]
+class GetAllAuthorsView(APIView): 
+    # unpaginated list of every author, used by the frontend search bar
     def get(self, request): 
-        try:
-            # Retrieve all profiles on the node (paginated)
-            get_remote_response = get_remote_authors(request)  # This saves them to the database
-            print(f"GET REMOVE AUTHORS RESPONSE {get_remote_response}")
-            
-            # Fetch all authors from the database
-            all_authors = Author.objects.all()
-            print(f"ALL AUTHORS {all_authors}")
-            if not all_authors:
-                return Response({"error": "Something went wrong", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-            serializer = AuthorSerializer(all_authors, many=True)
-            print(f"SERIALIZER AUTHORS DATA: {serializer} AND DATA: {serializer.data}")
-            
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        
-        except Exception as e:
-            print(f"Error: {str(e)}")  
-            
-            return Response({"error": "Something went wrong", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        all_authors = Author.objects.all()
+        serializer = AuthorSerializer(all_authors, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
         
 class FollowerView(APIView):
     
@@ -507,12 +481,6 @@ class FollowerView(APIView):
         
         # delete follow_request
         follow_request.delete()
-
-        # second confirm whether the request has been deleted
-        if Follows.objects.filter(id=follow_request.id).exists():
-            print("Error: Follow request was not deleted!")
-        else:
-            print("Follow request deleted successfully")
 
         return Response({"status": "Follow request denied"}, status=status.HTTP_204_NO_CONTENT)
 
@@ -676,20 +644,18 @@ class ProfileImageUploadView(APIView):
         try:
             # Ensure the username is provided
             if not username:
-                print("ProfileImageUploadView - POST - You forgot the username, babe.")
-                return Response({"error": "ProfileImageUploadView - POST - You forgot the username, babe."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "ProfileImageUploadView - POST - Username is required."}, status=status.HTTP_400_BAD_REQUEST)
 
             # Check if a file (profile image) was uploaded in the request
             file = request.FILES.get('profile_image')
             if not file:
-                print("ProfileImageUploadView - POST - You forgot the image file, babe.")
-                return Response({"error": "ProfileImageUploadView - POST - You forgot the image file, babe."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "ProfileImageUploadView - POST - No image file was provided."}, status=status.HTTP_400_BAD_REQUEST)
 
             imgur_url, error = upload_to_imgur(file)
             if error:
-                return Response({"error": f"ProfileImageUploadView - POST - Couldn't upload {file.name}, babe. {str(error)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return Response({"error": f"ProfileImageUploadView - POST - Couldn't upload {file.name}: {str(error)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
-            return Response({"message": "You uploaded a profile image successfully, babe!", "url": imgur_url[0]}, status=status.HTTP_200_OK)
+            return Response({"message": "Profile image uploaded successfully.", "url": imgur_url[0]}, status=status.HTTP_200_OK)
         
         except Exception as e:
             print(f"ProfileImageUploadView - POST - Error: {str(e)}")

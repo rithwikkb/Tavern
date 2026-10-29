@@ -1,0 +1,27 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# Creates a free web service. Point DATABASE_URL at a hosted Postgres
+# (e.g. Neon or Supabase) so data survives restarts.
+services:
+  - type: web
+    name: tavern
+    runtime: python
+    plan: free
+    buildCommand: ./build.sh
+    startCommand: gunicorn mistyrose.wsgi --chdir mistyrose
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      - key: NODE_VERSION
+        value: "22"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DATABASE_URL
+        sync: false
+      - key: DJANGO_SUPERUSER_USERNAME
+        sync: false
+      - key: DJANGO_SUPERUSER_EMAIL
+        sync: false
+      - key: DJANGO_SUPERUSER_PASSWORD
+        sync: false
