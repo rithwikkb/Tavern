@@ -1,8 +1,21 @@
 /* https://github.com/CodeCompleteYT/react-search-bar/blob/main/src/components/SearchResult.css search result css 2024-10-18, author: CodeCompleteYT */
 
 .search-result {
-  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 20px;
   font-family: 'Fredoka', sans-serif;
+  cursor: pointer;
+}
+
+.search-result-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid black;
+  object-fit: cover;
+  flex: none;
 }
 
 .search-result:hover {

@@ -30,9 +30,9 @@ const Login = () => {
       if (!response) {
         throw new Error('Login failed: No response');
       }
-      const { refresh_token, access_token, author_id } = response;
+      const { refresh_token, access_token, author_id, is_demo } = response;
 
-      setAuthCookies({ authorId: author_id, accessToken: access_token, refreshToken: refresh_token });
+      setAuthCookies({ authorId: author_id, accessToken: access_token, refreshToken: refresh_token, isDemo: Boolean(is_demo) });
 
       navigate('/');
     } catch (error) {

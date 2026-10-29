@@ -1,9 +1,12 @@
+/* one card width everywhere (feed, profiles, single post) so lines don't wrap early */
 .post-box {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: flex-start;
-  width: 89%;
+  width: 100%;
+  max-width: 620px;
+  box-sizing: border-box;
   margin-top: 10px;
   margin-bottom: 10px;
   background-color: #fff9f3;
@@ -142,6 +145,7 @@
   flex-direction: row;
   justify-content: flex-start;
   align-items: center;
+  white-space: nowrap;
   gap: 40px;
   margin-left: 20px;
   margin-right: 20px;

@@ -28,3 +28,15 @@ color: #212529
     color: #212529;   /* Change text color for better visibility */
     border: 2px solid #212529; /* Optional: match the border color */
 }
+/* when already following, the button reads "Following" and turns into "Unfollow" on hover */
+.follow-button.following .follow-button-hover {
+  display: none;
+}
+.follow-button.following:hover .follow-button-idle,
+.follow-button.following:focus-visible .follow-button-idle {
+  display: none;
+}
+.follow-button.following:hover .follow-button-hover,
+.follow-button.following:focus-visible .follow-button-hover {
+  display: inline;
+}

@@ -25,3 +25,14 @@ export const getComments = async (authorSerial, postSerial) => {
   }
 };
 
+
+// URL: api/authors/<uuid:author_serial>/commented/<uuid:comment_serial>/
+export const deleteComment = async (authorSerial, commentSerial) => {
+  try {
+    await api.delete(`/authors/${authorSerial}/commented/${commentSerial}/`);
+    return true;
+  } catch (error) {
+    console.error(error);
+    return false;
+  }
+};

@@ -4,11 +4,22 @@
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#2E3D34" />
     <meta
       name="description"
-      content="Tavern: a social networking web app built with Django and React"
+      content="Tavern is a small social network: share posts in plain text, Markdown or images, follow people, become friends, and comment on and like each other's posts. Built with Django and React."
     />
+    <!-- link previews (LinkedIn, Slack, iMessage...). Crawlers need absolute URLs, so the
+         build fills in %REACT_APP_SITE_URL% (see build.sh); it's empty in local builds. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Tavern" />
+    <meta property="og:title" content="Tavern — a small social network" />
+    <meta property="og:description" content="Share posts, follow people, become friends, comment and like. Try it instantly with the demo account." />
+    <meta property="og:url" content="%REACT_APP_SITE_URL%/" />
+    <meta property="og:image" content="%REACT_APP_SITE_URL%/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <!--
       manifest.json provides metadata used when your web app is installed on a

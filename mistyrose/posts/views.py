@@ -623,7 +623,18 @@ class CommentView(APIView):
             return Response(status=status.HTTP_404_NOT_FOUND)
         serializer = CommentSerializer(comment)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
+    def delete(self, request, author_serial, comment_serial):
+        """
+        Delete a comment: allowed for whoever wrote it and for the author of the post it's on
+        """
+        comment = get_object_or_404(Comment, id=parse_uuid(comment_serial), author_id=parse_uuid(author_serial))
+        if not is_request_author(request, comment.author_id_id, comment.post_id.author_id_id):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        # the comment's likes go with it (GenericRelation)
+        comment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 class CommentsView(APIView):
     """
     get comments on a post

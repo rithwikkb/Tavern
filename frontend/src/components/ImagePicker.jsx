@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import CircularProgress from '@mui/material/CircularProgress';
 import unknownUser from '../assets/unknownUser.png';
 import '../styles/components/ImagePicker.css';
@@ -7,10 +7,13 @@ import '../styles/components/ImagePicker.css';
 // instead of the browser's plain "Choose file / No file chosen" control.
 const ImagePicker = ({ imageUrl, uploading, error, onFileSelected, label = 'Profile picture' }) => {
   const fileInput = useRef(null);
+  // an existing picture (e.g. when editing a profile) isn't something the user just chose
+  const [picked, setPicked] = useState(false);
 
   const handleChange = (event) => {
     const file = event.target.files[0];
     if (file) {
+      setPicked(true);
       onFileSelected(file);
     }
     // allow choosing the same file again after an error
@@ -22,7 +25,7 @@ const ImagePicker = ({ imageUrl, uploading, error, onFileSelected, label = 'Prof
     status = 'Uploading…';
   } else if (error) {
     status = error;
-  } else if (imageUrl) {
+  } else if (imageUrl && picked) {
     status = 'Looks good! Choose another to replace it.';
   }
 

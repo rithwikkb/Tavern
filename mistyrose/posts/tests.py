@@ -1564,3 +1564,45 @@ class SinglePostEndpointTest(APITestCase):
         self.assertTrue(data["liked_by_me"])
         self.assertEqual(data["author"]["displayName"], "Sharer")
 
+
+
+class CommentDeleteTest(BaseTestCase):
+    def setUp(self):
+        super().setUp()
+        def make_author(name):
+            user = User.objects.create_user(username=name, password='somethingHardToCrack357')
+            return Author.objects.create(user=user, display_name=name, host='http://testserver')
+        self.post_owner = make_author('owner')
+        self.stranger = make_author('stranger')
+        self.post = Post.objects.create(author_id=self.post_owner, title='t', content='c',
+                                        content_type='text/plain', visibility='PUBLIC')
+        # self.author (the logged-in user) wrote the comment
+        self.comment = Comment.objects.create(author_id=self.author, post_id=self.post, comment='hi')
+        Like.objects.create(author_id=self.stranger, object_id=self.comment.id,
+                            content_type=ContentType.objects.get_for_model(Comment), object_url=self.comment.url)
+        self.url = f'/api/authors/{self.author.id}/commented/{self.comment.id}/'
+
+    def login_as(self, author):
+        token = RefreshToken.for_user(author.user).access_token
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+
+    def test_comment_author_can_delete_and_likes_go_with_it(self):
+        response = self.client.delete(self.url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Comment.objects.filter(id=self.comment.id).exists())
+        self.assertFalse(Like.objects.filter(object_id=self.comment.id).exists())
+
+    def test_post_author_can_delete(self):
+        self.login_as(self.post_owner)
+        self.assertEqual(self.client.delete(self.url).status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_others_cannot_delete(self):
+        self.login_as(self.stranger)
+        self.assertEqual(self.client.delete(self.url).status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials()
+        self.assertIn(self.client.delete(self.url).status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
+        self.assertTrue(Comment.objects.filter(id=self.comment.id).exists())
+
+    def test_wrong_author_in_url_is_not_found(self):
+        url = f'/api/authors/{self.stranger.id}/commented/{self.comment.id}/'
+        self.assertEqual(self.client.delete(url).status_code, status.HTTP_404_NOT_FOUND)

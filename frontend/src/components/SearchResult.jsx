@@ -2,12 +2,12 @@
 
 import "../styles/components/SearchResult.css";
 import { useNavigate } from "react-router-dom";
+import unknownUser from "../assets/unknownUser.png";
 
 const SearchResult = ({ result }) => {
   const navigate = useNavigate();
 
   const handleClickProfile = async () => {
-    console.log(result);
     const authorId = result.id.replace(/\/$/, '').split('/').slice(-1)[0]; // Grabs the second last segment, which is the UUID
     navigate(`/profile/${authorId}`);
   }
@@ -17,7 +17,8 @@ const SearchResult = ({ result }) => {
       className="search-result"
       onClick={handleClickProfile}
     >
-      {result.displayName}
+      <img className="search-result-avatar" src={result.profileImage || unknownUser} alt="" loading="lazy" />
+      <span>{result.displayName}</span>
     </div>
   );
 };

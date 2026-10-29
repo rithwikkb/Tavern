@@ -25,6 +25,7 @@ class LoginViewTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('access_token', response.data)
         self.assertIn('refresh_token', response.data)
+        self.assertFalse(response.data['is_demo'])
 
     def test_login_invalid_credentials(self):
         data = {"username": "wronguser", "password": "wrongpass"}
@@ -583,6 +584,7 @@ class SeedDemoTest(TestCase):
         client = APIClient()
         login = client.post("/api/login/", {"username": settings.DEMO_USERNAME, "password": settings.DEMO_PASSWORD}, format="json")
         self.assertEqual(login.status_code, 200)
+        self.assertTrue(login.data["is_demo"])
         client.credentials(HTTP_AUTHORIZATION="Bearer " + login.data["access_token"])
         posts = client.get("/api/posts/").data["posts"]
         visibilities = {p["visibility"] for p in posts}

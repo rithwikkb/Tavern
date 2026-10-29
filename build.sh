@@ -9,7 +9,9 @@ cd frontend
 npm ci
 # CI=false keeps existing lint warnings from failing the build;
 # GENERATE_SOURCEMAP=false stops publishing the original source alongside the bundle
-CI=false GENERATE_SOURCEMAP=false npm run build
+# REACT_APP_SITE_URL gives the link-preview tags in index.html absolute URLs
+PUBLIC_SITE_URL="${SITE_URL:-${RENDER_EXTERNAL_URL:-}}"
+REACT_APP_SITE_URL="${PUBLIC_SITE_URL%/}" CI=false GENERATE_SOURCEMAP=false npm run build
 cd ..
 
 cd mistyrose

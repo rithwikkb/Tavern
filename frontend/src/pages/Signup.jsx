@@ -87,7 +87,7 @@ const Signup = () => {
         username: formData.username,
         password: formData.password,
       });
-      setAuthCookies({ authorId: author_id, accessToken: access_token, refreshToken: refresh_token });
+      setAuthCookies({ authorId: author_id, accessToken: access_token, refreshToken: refresh_token, isDemo: false });
       navigate('/');
     } catch (err) {
       // account was created but auto-login failed; let them log in manually

@@ -97,7 +97,9 @@ class LoginView(APIView):
         response = Response({
             "author_id": author_id,
             "refresh_token": str(refresh),
-            "access_token": access_token
+            "access_token": access_token,
+            # lets the app hide things the shared demo account can't do (like editing its profile)
+            "is_demo": user.username == settings.DEMO_USERNAME,
         }, status=status.HTTP_200_OK)
 
         return response  # Return the final response containing the tokens

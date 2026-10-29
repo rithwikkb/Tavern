@@ -97,7 +97,7 @@ const PostBox = ({ post, poster }) => {
 
       <div className="post-footer">
         <LikeButton post={post} />
-        <CommentsModal postId={post.id} initialCount={post.comments_count} />
+        <CommentsModal postId={post.id} postAuthorId={authorId} initialCount={post.comments_count} />
         <button onClick={handleCopyLink} className="share-link-button">
           <img
             src={shareLinkIcon}

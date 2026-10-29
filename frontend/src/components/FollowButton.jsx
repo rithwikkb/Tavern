@@ -75,7 +75,8 @@ const FollowButton = ({
   };
 
   const handleUnfollow = async () => {
-    if (buttonState === 'Unfollow') {
+    const name = profileData?.displayName || 'this person';
+    if (buttonState === 'Unfollow' && window.confirm(`Unfollow ${name}?`)) {
       try {
         await rejectFollowRequest(authorId, currentUserId);
         setButtonState('Follow'); // Update button state after a successful unfollow request
@@ -95,11 +96,18 @@ const FollowButton = ({
 
   return (
     <button
-      className={`follow-button ${buttonState === 'Requested' ? 'requested' : ''}`}
+      className={`follow-button ${buttonState === 'Requested' ? 'requested' : ''} ${buttonState === 'Unfollow' ? 'following' : ''}`}
       onClick={handleButtonClick}
       disabled={buttonState === 'Requested'}
     >
-      {buttonState}
+      {buttonState === 'Unfollow' ? (
+        <>
+          <span className="follow-button-idle">Following</span>
+          <span className="follow-button-hover">Unfollow</span>
+        </>
+      ) : (
+        buttonState
+      )}
     </button>
   );
 };

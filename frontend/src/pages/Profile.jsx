@@ -13,6 +13,7 @@ import { getFriends } from '../services/FriendsDetailService';
 import { getFollowing } from '../services/FollowingDetailService';
 import AuthorsListModal from '../components/AuthorsListModal';
 import unknownUser from  '../assets/unknownUser.png';
+import { isDemoAccount } from '../utils/authCookies';
 
 const Profile = () => {
   const { authorId } = useParams();
@@ -155,7 +156,12 @@ const Profile = () => {
             alt={profileData.displayName}
             className="profile-image"
           />
-          {isCurrentUser ? (
+          {isCurrentUser && isDemoAccount() ? (
+            // the shared demo profile can't be edited, so offer a real account instead
+            <button className="edit-button" onClick={() => navigate('/signup')}>
+              Sign up for your own profile
+            </button>
+          ) : isCurrentUser ? (
             <button
               className="edit-button"
               onClick={() => navigate(`/profile/${authorId}/edit`)}
@@ -175,32 +181,24 @@ const Profile = () => {
         <div className="profile-details">
           <h1>{profileData.displayName}</h1>
           <div className="profile-stats">
-            <div>
-              <h2 style={{ cursor: 'pointer' }} onClick={handleFriendsClick}>
-                {profileData.friends_count || 0}
-              </h2>
-              <p>Friends</p>
-            </div>
-            <div>
-              <h2 style={{ cursor: 'pointer' }} onClick={handleFollowersClick}>
-                {profileData.followers_count || 0}
-              </h2>
-              <p>Followers</p>
-            </div>
-            <div>
-              <h2 style={{ cursor: 'pointer' }} onClick={handleFollowingClick}>
-                {profileData.following_count || 0}
-              </h2>
-              <p>Following</p>
-            </div>
+            {[
+              ['Friends', profileData.friends_count, handleFriendsClick],
+              ['Followers', profileData.followers_count, handleFollowersClick],
+              ['Following', profileData.following_count, handleFollowingClick],
+            ].map(([label, count, onClick]) => (
+              <button key={label} type="button" className="profile-stat" onClick={onClick}>
+                <span className="profile-stat-count">{count || 0}</span>
+                <span className="profile-stat-label">{label}</span>
+              </button>
+            ))}
           </div>
 
           {/* Profile Links */}
           <div className="profile-links">
-            <div className="links-details">
-              <p>
-                GitHub Profile:{' '}
-                {hasGithub ? (
+            {hasGithub && (
+              <div className="links-details">
+                <p>
+                  GitHub:{' '}
                   <a
                     href={profileData.github}
                     target="_blank"
@@ -208,11 +206,9 @@ const Profile = () => {
                   >
                     {profileData.github.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '')}
                   </a>
-                ) : (
-                  'Not linked'
-                )}
-              </p>
-            </div>
+                </p>
+              </div>
+            )}
             <div className="links-details">
               <button className="copy-profile-link" type="button" onClick={handleCopyProfileLink}>
                 {linkCopied ? 'Link copied!' : 'Copy profile link'}
