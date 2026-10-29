@@ -111,3 +111,25 @@
   width: 7em; 
   height: auto; 
 }
+/* unread notifications count on the bell */
+.navbar-icon {
+  position: relative;
+}
+.navbar-badge {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  border: 2px solid #2E3D34;
+  background-color: bisque;
+  color: #2E3D34;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}

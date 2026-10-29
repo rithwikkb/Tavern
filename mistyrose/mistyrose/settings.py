@@ -79,6 +79,7 @@ INSTALLED_APPS = [
     'posts',
     'users',
     'stream',
+    'notifications',
     ]
 
 MIDDLEWARE = [

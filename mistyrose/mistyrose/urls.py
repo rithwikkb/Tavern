@@ -38,6 +38,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/posts/', include('posts.urls')),
     path('api/users/', include('users.urls')),
+    path('api/notifications/', include('notifications.urls')),
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name="swagger"),
     path('api/liked/', include('posts.liked_urls')), #api/liked urls
     path('api/comment/', include('posts.comment_urls')), #api/comment urls

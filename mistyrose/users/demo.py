@@ -315,6 +315,13 @@ def reset_demo_account():
                 if post_key in posts and liker in authors and (liker == demo or post_key in demo_post_keys):
                     _upsert_like(authors, post_key, posts[post_key], liker)
 
+        # the next visitor should see the demo's notifications as new: bring back any that
+        # were dismissed or expired, and date them to now so they don't expire again
+        from notifications.models import Notification
+        from notifications.signals import rebuild_notifications_for
+        rebuild_notifications_for(demo_author)
+        Notification.objects.filter(recipient=demo_author).update(read=False, created=now)
+
 
 def maybe_reset_demo_account(user):
     """

@@ -706,6 +706,32 @@ class DemoResetTest(TestCase):
         self.assertEqual(welcome.visibility, "PUBLIC")
         self.assertEqual((welcome.comments.count(), Like.objects.filter(object_id=welcome.id).count()), before)
 
+    def test_demo_has_unread_notifications_again_after_reset(self):
+        from notifications.models import Notification
+        client = self.login_demo()
+        data = client.get("/api/notifications/").data
+        verbs = {n["verb"] for n in data["notifications"]}
+        self.assertTrue({"comment", "like_post", "follow", "follow_request"} <= verbs, verbs)
+        self.assertEqual(data["unread_count"], len(data["notifications"]))
+
+        client.post("/api/notifications/read/")
+        self.assertEqual(client.get("/api/notifications/unread_count/").data["unread_count"], 0)
+
+        # a visitor dismisses one, and another has expired
+        dismissed = data["notifications"][0]["id"]
+        client.post("/api/notifications/dismiss/", {"ids": [dismissed]}, format="json")
+        from django.utils import timezone
+        from datetime import timedelta
+        Notification.objects.filter(recipient=self.demo_author).exclude(id=dismissed).filter(
+            id=data["notifications"][1]["id"]).update(created=timezone.now() - timedelta(days=40))
+        self.assertEqual(len(client.get("/api/notifications/").data["notifications"]), len(data["notifications"]) - 2)
+
+        User.objects.filter(username=self.settings_.DEMO_USERNAME).update(last_login=None)
+        client = self.login_demo()
+        after = client.get("/api/notifications/").data
+        self.assertEqual(len(after["notifications"]), len(data["notifications"]))
+        self.assertEqual(after["unread_count"], len(after["notifications"]))
+
     def test_no_reset_within_interval(self):
         from posts.models import Post
         client = self.login_demo()  # resets and starts the interval

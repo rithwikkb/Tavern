@@ -7,6 +7,7 @@ import EditProfile from '../pages/EditProfile';
 import Signup from '../pages/Signup';
 import Login from '../pages/Login';
 import PostDetail from '../pages/PostDetail';
+import Notifications from '../pages/Notifications';
 import NotFound from '../pages/NotFound';
 import ProtectedRoute from './ProtectedRoute';
 
@@ -31,6 +32,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Post />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/notifications"
+        element={
+          <ProtectedRoute>
+            <Notifications />
           </ProtectedRoute>
         }
       />
