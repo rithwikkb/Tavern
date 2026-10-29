@@ -11,6 +11,6 @@ export const signup = async (signupData) => {
     return response.data;
   } catch (error) {
     // surface the server's reason (e.g. "Username already exists.") to the signup form
-    throw new Error(error.response?.data?.message || 'Signup failed. Please try again.');
+    throw new Error(error.response?.data?.message || error.response?.data?.detail || 'Signup failed. Please try again.');
   }
 };

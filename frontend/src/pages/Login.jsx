@@ -41,7 +41,8 @@ const Login = () => {
       navigate('/');
     } catch (error) {
       // show the server's reason (wrong credentials, inactive account) when there is one
-      setError(error.response?.data?.error || 'Login failed. Please try again.');
+      // `detail` carries DRF's message, e.g. when too many attempts are throttled
+      setError(error.response?.data?.error || error.response?.data?.detail || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }

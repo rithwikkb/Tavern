@@ -1,4 +1,5 @@
 import api from './axios';
+import { clearCurrentAuthorCache } from './AuthorsService';
 
 const currentHost = window.location.origin; // Get host for the image upload URL
 
@@ -12,6 +13,7 @@ export const getAuthorProfile = async (authorId) => {
 export const updateAuthorProfile = async (authorId, profileData) => {
     try {
         const response = await api.put(`authors/${authorId}/profile/edit/`, profileData);
+        clearCurrentAuthorCache();
         return response.data;
     } catch (error) {
         throw new Error(error.response?.data?.error || 'Failed to update profile');

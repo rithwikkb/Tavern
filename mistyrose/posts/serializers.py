@@ -5,6 +5,19 @@ from .models import Post, Comment, Like
 import importlib
 from django.urls import reverse
 
+def with_post_relations(queryset):
+    """
+    Load everything PostSerializer touches (author, comments with their authors
+    and likes, likes with their authors) in a fixed number of queries instead of
+    several per post.
+    """
+    return queryset.select_related('author_id').prefetch_related(
+        'likes__author_id',
+        'comments__author_id',
+        'comments__post_id__author_id',
+        'comments__likes__author_id',
+    )
+
 #region Comment Serializers        
 class CommentSerializer(serializers.ModelSerializer):
     type = serializers.CharField(default='comment', read_only=True)
@@ -39,7 +52,8 @@ class CommentSerializer(serializers.ModelSerializer):
         return f"{post_author_host}/authors/{post_author_id}/posts/{post_id}" #"http://nodebbbb/api/authors/222/posts/249"
     
     def get_likes(self, comment_object):
-        likes = comment_object.likes.all().order_by('-published')
+        # sort in Python so prefetched likes are reused instead of re-queried
+        likes = sorted(comment_object.likes.all(), key=lambda like: like.published, reverse=True)
 
         serializer = LikeSerializer(likes, many=True)
         
@@ -49,8 +63,8 @@ class CommentSerializer(serializers.ModelSerializer):
             "page": f"{host}/authors/{comment_object.author_id.id}/commented/{comment_object.id}/likes",
             "id": f"{host}/authors/{comment_object.author_id.id}/commented/{comment_object.id}/likes",
             "page_number": 1,
-            "size": comment_object.likes.count(),
-            "count": comment_object.likes.count(),
+            "size": len(likes),
+            "count": len(likes),
             "src": serializer.data,  # List of serialized like data
         }
         
@@ -123,7 +137,7 @@ class PostSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         
-        representation['author'] = AuthorSerializer(instance.author_id).data
+        # (already serialized as `author` via source='author_id')
         if representation['description'] is None:
             representation['description'] = 'No Description' 
         
@@ -132,6 +146,14 @@ class PostSerializer(serializers.ModelSerializer):
         
         # get id for post
         representation['id'] = self.get_id(instance)
+
+        # summary fields so the post cards don't need extra requests
+        likes = instance.likes.all()
+        representation['likes_count'] = len(likes)
+        representation['comments_count'] = len(instance.comments.all())
+        viewer_id = self.context.get('viewer_id')
+        if viewer_id is not None:
+            representation['liked_by_me'] = any(like.author_id_id == viewer_id for like in likes)
         
         return representation
     

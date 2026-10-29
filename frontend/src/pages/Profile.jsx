@@ -125,7 +125,10 @@ const Profile = () => {
   const isCurrentUser = currentUserId === authorId;
 
   // new accounts default to the bare "https://github.com/" link
-  const hasGithub = !!profileData.github && !/^https?:\/\/github\.com\/?$/.test(profileData.github);
+  // only render real web links (never javascript: or other schemes)
+  const hasGithub =
+    /^https?:\/\//i.test(profileData.github || '') &&
+    !/^https?:\/\/github\.com\/?$/.test(profileData.github);
   const publicPosts = profileData.public_posts || [];
   const friendsPosts = profileData.friends_posts || [];
   const unlistedPosts = profileData.unlisted_posts || [];

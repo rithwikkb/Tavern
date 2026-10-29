@@ -1,6 +1,8 @@
 from urllib.parse import urlparse
 from rest_framework import serializers
+from django.core.exceptions import ValidationError as DjangoValidationError
 from users.models import Author
+from users.utils import validate_web_url
 
 
 class AuthorSerializer(serializers.Serializer):
@@ -50,6 +52,23 @@ class AuthorEditProfileSerializer(serializers.ModelSerializer):
         model = Author
         fields = ['display_name', 'github', 'profile_image']  # Only fields you want to update
     
+    def validate_profile_image(self, value):
+        # rendered as an <img> everywhere the author appears, so keep it a plain web URL
+        if value:
+            try:
+                validate_web_url(value)
+            except DjangoValidationError as e:
+                raise serializers.ValidationError(e.messages)
+        return value
+
+    def validate_github(self, value):
+        if value:
+            try:
+                validate_web_url(value)
+            except DjangoValidationError as e:
+                raise serializers.ValidationError(e.messages)
+        return value
+
     def update(self, instance, validated_data):
         # Update the author instance with the provided validated data
         instance.display_name = validated_data.get('display_name', instance.display_name)

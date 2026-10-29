@@ -530,3 +530,32 @@ class AdminAccountLoginTest(TestCase):
         )
         self.assertEqual(response.status_code, 403)
         self.assertIn("admin panel", response.json()["error"])
+
+
+class ProfileLinkValidationTest(TestCase):
+    """GitHub links and profile images are rendered as links/images, so only http(s) URLs are allowed."""
+    def test_signup_rejects_javascript_github_link(self):
+        response = self.client.post("/api/signup/", {
+            "username": "linky", "email": "l@example.com", "password": "Tavern-strong-pass-42",
+            "displayName": "Linky", "github": "javascript:alert(document.cookie)",
+        }, content_type="application/json")
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(User.objects.filter(username="linky").exists())
+
+    def test_signup_rejects_oversized_profile_image(self):
+        response = self.client.post("/api/signup/", {
+            "username": "bigpic", "email": "b@example.com", "password": "Tavern-strong-pass-42",
+            "displayName": "Big", "profileImage": "A" * 100_000,
+        }, content_type="application/json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_profile_edit_rejects_non_url_image(self):
+        user = User.objects.create_user(username="editor", password="Tavern-strong-pass-42")
+        author = Author.objects.create(display_name="Editor", host="http://testserver", user=user)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Bearer " + str(RefreshToken.for_user(user).access_token))
+        response = client.put(f"/api/authors/{author.id}/profile/edit/", {
+            "display_name": "Editor", "profile_image": "javascript:alert(1)",
+        }, format="json")
+        self.assertEqual(response.status_code, 400)
+

@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from .models import Post, Comment, Like
-from .serializers import PostSerializer, CommentSerializer, LikeSerializer
+from .serializers import PostSerializer, CommentSerializer, LikeSerializer, with_post_relations
 from django.shortcuts import get_object_or_404
 from django.contrib.contenttypes.models import ContentType
 from .models import Post
@@ -31,6 +31,9 @@ from rest_framework.generics import ListAPIView
 from rest_framework.pagination import PageNumberPagination
 
 logger = logging.getLogger(__name__)
+
+# The home feed shows at most this many of the newest posts
+FEED_POST_LIMIT = 100
 
 
 
@@ -342,7 +345,10 @@ class AuthorPostsView(APIView):
         except:
             return Response({"error": "AuthorPostsView - GET - Invalid FQID or SERIAL."}, status=status.HTTP_400_BAD_REQUEST)
         
-        posts = [post for post in Post.objects.filter(author_id=author_serial) if can_view_post(request, post)]
+        posts = [
+            post for post in with_post_relations(Post.objects.filter(author_id=author_serial))
+            if can_view_post(request, post)
+        ]
 
         all_post_data = []
 
@@ -539,13 +545,10 @@ class PublicPostsView(APIView):
 
         current_author = get_object_or_404(Author, user=request.user)
 
-        # posts = Post.objects.exclude(author_id=current_author.id)
-        posts = Post.objects.all()
+        # newest posts first (Post.Meta.ordering); deleted posts are never shown in the feed
+        posts = with_post_relations(Post.objects.exclude(visibility='DELETED'))[:FEED_POST_LIMIT]
 
-        serializer = PostSerializer(posts, many=True)
-
-        # all_authors = list(Author.objects.exclude(id=current_author.id).values_list('id', flat=True))
-        all_authors = list(Author.objects.all().values_list('id', flat=True))
+        serializer = PostSerializer(posts, many=True, context={'viewer_id': current_author.id})
 
         authorized_authors_per_post = []
 
@@ -567,12 +570,8 @@ class PublicPostsView(APIView):
                 authorized_authors.add(current_author.id)
 
             elif post_visibility == 'UNLISTED':
-                accepted_following_ids = Follows.objects.filter(
-                local_follower_id=current_author, 
-                status='ACCEPTED'
-                ).values_list('followed_id', flat=True)
                 # Show the unlisted post if the post's author is someone the current author follows
-                if post_author_id in accepted_following_ids or post_author_id == current_author.id:
+                if post_author_id in following_ids or post_author_id == current_author.id:
                     authorized_authors.add(current_author.id)
 
             elif post_visibility == 'FRIENDS':
@@ -601,7 +600,8 @@ class PublicPostsView(APIView):
             else:
                 posts_to_remove.append(post_data['id'])
 
-            filtered_posts = [post for post in serializer.data if post['id'] not in posts_to_remove]
+        posts_to_remove = set(posts_to_remove)
+        filtered_posts = [post for post in serializer.data if post['id'] not in posts_to_remove]
 
 
         # Create response data with posts and their respective authorized authors
@@ -681,7 +681,11 @@ class CommentedView(APIView):
         
         author = get_object_or_404(Author, id=author_serial)
 
-        comments = author.comments.all().order_by('-published')
+        # leave out comments on posts this viewer can't see (e.g. someone else's friends-only post)
+        comments = [
+            comment for comment in author.comments.select_related('post_id').order_by('-published')
+            if can_view_post(request, comment.post_id)
+        ]
 
         serializer = CommentSerializer(comments, many=True) # many=True specifies that input is not just a single comment
         #host is the host of commenter
@@ -692,8 +696,8 @@ class CommentedView(APIView):
             "page": f"{host}/authors/{author_serial}",
             "id": f"{host}/authors/{author_serial}",
             "page_number": 1,
-            "size": author.comments.count(),
-            "count": author.comments.count(),
+            "size": len(comments),
+            "count": len(comments),
             "src": serializer.data  
         }
 
@@ -715,7 +719,11 @@ class CommentsByAuthorFQIDView(APIView):
         
         author = get_object_or_404(Author, id=author_serial)
 
-        comments = author.comments.all().order_by('-published')
+        # leave out comments on posts this viewer can't see (e.g. someone else's friends-only post)
+        comments = [
+            comment for comment in author.comments.select_related('post_id').order_by('-published')
+            if can_view_post(request, comment.post_id)
+        ]
 
         serializer = CommentSerializer(comments, many=True) # many=True specifies that input is not just a single comment
         #host is the host of commenter
@@ -726,8 +734,8 @@ class CommentsByAuthorFQIDView(APIView):
             "page": f"{host}/authors/{author_serial}",
             "id": f"{host}/authors/{author_serial}",
             "page_number": 1,
-            "size": author.comments.count(),
-            "count": author.comments.count(),
+            "size": len(comments),
+            "count": len(comments),
             "src": serializer.data  
         }
 
@@ -752,6 +760,9 @@ class CommentView(APIView):
             return Response({"error": "CommentView - GET - Invalid FQID or SERIAL."}, status=status.HTTP_400_BAD_REQUEST)
         
         comment = get_object_or_404(Comment, id=comment_serial)
+        # comments are only visible to people who can see the post
+        if not can_view_post(request, comment.post_id):
+            return Response(status=status.HTTP_404_NOT_FOUND)
         serializer = CommentSerializer(comment)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
@@ -859,6 +870,9 @@ class CommentRemoteByFQIDView(APIView):
             return Response({"error": "Invalid FQID format"}, status=status.HTTP_400_BAD_REQUEST)
         
         comment = get_object_or_404(Comment, id=comment_serial)
+        # comments are only visible to people who can see the post
+        if not can_view_post(request, comment.post_id):
+            return Response(status=status.HTTP_404_NOT_FOUND)
         serializer = CommentSerializer(comment)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -882,6 +896,9 @@ class CommentByFQIDView(APIView):
             return Response({"error": "Invalid FQID format"}, status=status.HTTP_400_BAD_REQUEST)
         
         comment = get_object_or_404(Comment, id=comment_serial)
+        # comments are only visible to people who can see the post
+        if not can_view_post(request, comment.post_id):
+            return Response(status=status.HTTP_404_NOT_FOUND)
         serializer = CommentSerializer(comment)
         return Response(serializer.data, status=status.HTTP_200_OK)
         
@@ -1048,7 +1065,8 @@ class LikesView(APIView):
         if not can_view_post(request, post):
             return Response(status=status.HTTP_404_NOT_FOUND)
 
-        likes = post.likes.all().order_by('-published')
+        likes = post.likes.select_related('author_id').order_by('-published')
+        viewer = get_request_author(request)
 
         # Pagination setup
         paginator = LikesPagination()
@@ -1064,6 +1082,8 @@ class LikesView(APIView):
             "page_number": paginator.page.number,
             "size": paginator.get_page_size(request),
             "count": post.likes.count(),
+            # likes are paginated, so tell the client directly whether the viewer has liked this post
+            "liked_by_me": viewer is not None and post.likes.filter(author_id=viewer).exists(),
             "src": serializer.data  # List of serialized like data
         }
 

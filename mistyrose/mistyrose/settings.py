@@ -13,6 +13,8 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from datetime import timedelta
 from pathlib import Path
 import os
+import sys
+from django.core.exceptions import ImproperlyConfigured
 import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -22,15 +24,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-# Set DJANGO_SECRET_KEY in the environment for any deployed instance.
-SECRET_KEY = os.environ.get(
-    "DJANGO_SECRET_KEY",
-    "django-insecure-local-dev-only-key-do-not-use-in-production",
-)
-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() in ("1", "true", "yes")
+
+# SECURITY WARNING: keep the secret key used in production secret!
+# It also signs login tokens, so a known key would let anyone forge a session.
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured("Set DJANGO_SECRET_KEY (or DJANGO_DEBUG=True for local development).")
+    SECRET_KEY = "django-insecure-local-dev-only-key-do-not-use-in-production"
+
+# True while running `manage.py test`
+TESTING = "test" in sys.argv
 
 # Comma-separated list of hostnames, e.g. "tavern.onrender.com"
 ALLOWED_HOSTS = [
@@ -79,6 +85,8 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    # compress API responses (the feed JSON is large and very repetitive)
+    'django.middleware.gzip.GZipMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'mistyrose.middleware.TrailingSlashMiddleware',
@@ -216,8 +224,11 @@ REST_FRAMEWORK = {
     ),
     'EXCEPTION_HANDLER': 'mistyrose.exceptions.exception_handler',
     # Rates for views that opt in with throttle_scope
+    # (limits are per client IP; the test suite makes many requests from one address)
     'DEFAULT_THROTTLE_RATES': {
         'image_upload': os.environ.get('IMAGE_UPLOAD_RATE', '10/hour'),
+        'login': '1000/min' if TESTING else os.environ.get('LOGIN_RATE', '10/min'),
+        'signup': '1000/min' if TESTING else os.environ.get('SIGNUP_RATE', '20/hour'),
     },
 }
 # JWT settings

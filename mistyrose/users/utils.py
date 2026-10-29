@@ -45,6 +45,19 @@ def parse_uuid(value):
     except ValueError:
         raise Http404("Not found.")
 
+def validate_web_url(value, max_length=2048):
+    """
+    Accept only http(s) URLs of a sane length, so stored links can't be
+    javascript: URLs or multi-megabyte blobs embedded in every response.
+    """
+    from django.core.exceptions import ValidationError
+    from django.core.validators import URLValidator
+
+    if len(value) > max_length:
+        raise ValidationError(f"Must be at most {max_length} characters.")
+    URLValidator(schemes=["http", "https"])(value)
+    return value
+
 def is_fqid(value):
     """
     Check if the value is an FQID (a URL) or a SERIAL (integer).

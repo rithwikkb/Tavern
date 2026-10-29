@@ -5,7 +5,6 @@ import SearchBar from '../components/SearchBar';
 import SearchResultsList from '../components/SearchResultsList';
 import { makeGithubActivityPosts } from '../services/GithubService';
 import Cookies from 'js-cookie';
-import { getAuthorProfile } from '../services/profileService';
 import { checkIfFollowing } from '../services/FollowService';
 import api from '../services/axios';
 import PostBox from '../components/PostBox';
@@ -58,37 +57,14 @@ const Home = () => {
           ...new Set(data.posts.map((post) => post.author.id.split('/')[5])),
         ];
 
-        // Fetch author profiles based on the retrieved posts
-        const profiles = await Promise.all(
-          authorIds.map(async (authorId) => {
-            try {
-              const profile = await getAuthorProfile(authorId);
-              return {
-                authorId,
-                displayName: profile.displayName,
-                profileImage: profile.profileImage,
-              };
-            } catch (profileError) {
-              console.error(
-                `Error fetching profile for author ${authorId}:`,
-                profileError
-              );
-              return {
-                authorId,
-                displayName: null,
-                profileImage: null,
-              };
-            }
-          })
-        );
-
-        const profileMap = profiles.reduce(
-          (acc, { authorId, displayName, profileImage }) => {
-            acc[authorId] = { displayName, profileImage };
-            return acc;
-          },
-          {}
-        );
+        // each post already includes its author's name and picture
+        const profileMap = {};
+        data.posts.forEach((post) => {
+          profileMap[post.author.id.split('/')[5]] = {
+            displayName: post.author.displayName,
+            profileImage: post.author.profileImage,
+          };
+        });
         setAuthorProfiles(profileMap);
 
         // you can't follow yourself, so only check other authors

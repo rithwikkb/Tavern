@@ -27,14 +27,14 @@ from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.http import HttpRequest
 from .pagination import AuthorsPagination  
-from posts.serializers import PostSerializer  
+from posts.serializers import PostSerializer, with_post_relations
 from uuid import UUID 
 from urllib.parse import urlparse
 from rest_framework.exceptions import NotFound
 from rest_framework.throttling import ScopedRateThrottle
 import urllib.parse
 
-from .utils import is_fqid, upload_to_imgur, is_request_author, get_request_author, are_friends, parse_uuid
+from .utils import is_fqid, upload_to_imgur, is_request_author, get_request_author, are_friends, parse_uuid, validate_web_url
 
 # Default profile picture URL to be used when no image is provided
 DEFAULT_PROFILE_PIC = "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png"
@@ -59,6 +59,9 @@ def create_author(author_data, request, user):
 # View for handling login functionality
 class LoginView(APIView):
     permission_classes = [AllowAny]  # No authentication required to access this view
+    # slow down password guessing
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'login'
     
     def post(self, request):
         # Deserialize and validate input data
@@ -125,6 +128,8 @@ class LoginView(APIView):
 class SignUpView(APIView):
     http_method_names = ["post"]  # Only POST requests allowed
     permission_classes = [AllowAny]  # No authentication required for signup
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'signup'
 
     def post(self, request):
         # Get required data from the request body
@@ -163,6 +168,13 @@ class SignUpView(APIView):
             validate_password(password, user=User(username=username, email=email))
         except ValidationError as e:
             return Response({"message": " ".join(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
+        # these are rendered as links/images, so only allow ordinary web URLs
+        for field_name, value in (("GitHub link", github), ("Profile image", request.data.get("profileImage"))):
+            if value:
+                try:
+                    validate_web_url(value)
+                except ValidationError:
+                    return Response({"message": f"{field_name} must be a valid http(s) URL."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Check if the username is already taken
         if User.objects.filter(username=username).exists():
@@ -283,11 +295,10 @@ class AuthorProfileView(APIView):
         """Retrieve the count of authors that the user is following with accepted follow requests."""
         return Follows.objects.filter(local_follower_id=author, status='ACCEPTED').count()
 
-    def get_author_posts(self, author, visibility):
+    def get_author_posts(self, author, visibility, viewer):
         """Retrieve posts by visibility and serialize them."""
-        return PostSerializer(
-            Post.objects.filter(author_id=author, visibility=visibility).order_by('-published'), many=True
-        ).data
+        posts = with_post_relations(Post.objects.filter(author_id=author, visibility=visibility).order_by('-published'))
+        return PostSerializer(posts, many=True, context={'viewer_id': viewer.id if viewer else None}).data
 
     def get(self, request, pk):
         pk = str(pk)
@@ -310,13 +321,13 @@ class AuthorProfileView(APIView):
         friends_count = self.get_friends_count(request, pk=author.id)
         followers_count = self.get_follower_count(author)
         following_count = self.get_following_count(author)
-        public_posts = self.get_author_posts(author, 'PUBLIC')
-        # friends-only posts are shown to the author and their friends only
         viewer = get_request_author(request)
+        public_posts = self.get_author_posts(author, 'PUBLIC', viewer)
+        # friends-only posts are shown to the author and their friends only
         can_see_friends_posts = viewer is not None and (viewer.id == author.id or are_friends(viewer, author))
-        friends_posts = self.get_author_posts(author, 'FRIENDS') if can_see_friends_posts else []
-        unlisted_posts = self.get_author_posts(author, 'UNLISTED')
-        shared_posts = self.get_author_posts(author, 'SHARED')
+        friends_posts = self.get_author_posts(author, 'FRIENDS', viewer) if can_see_friends_posts else []
+        unlisted_posts = self.get_author_posts(author, 'UNLISTED', viewer)
+        shared_posts = self.get_author_posts(author, 'SHARED', viewer)
         
         # Prepare the response data
         data = {

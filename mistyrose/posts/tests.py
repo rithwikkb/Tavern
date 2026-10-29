@@ -1421,3 +1421,66 @@ class DeletePostResendTestCase(APITestCase):
 
         self.post.refresh_from_db()
         self.assertEqual(self.post.visibility, "DELETED")
+
+
+class FeedEfficiencyAndLikesTest(APITestCase):
+    """The feed loads in a fixed number of queries, and like state survives pagination."""
+    def setUp(self):
+        self.authors = []
+        for i in range(12):
+            user = User.objects.create_user(username=f"feed{i}", password="pass")
+            self.authors.append(Author.objects.create(display_name=f"Feed {i}", host="http://testserver", user=user))
+        self.viewer = self.authors[0]
+        refresh = RefreshToken.for_user(self.viewer.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
+        self.post_ct = ContentType.objects.get_for_model(Post)
+
+    def make_post(self, author, n_comments=2, n_likes=2):
+        post = Post.objects.create(author_id=author, title="t", content="c", content_type="text/plain", visibility="PUBLIC")
+        for a in self.authors[:n_comments]:
+            Comment.objects.create(author_id=a, post_id=post, comment="hi")
+        for a in self.authors[:n_likes]:
+            Like.objects.create(author_id=a, object_id=post.id, content_type=self.post_ct, object_url=post.url)
+        return post
+
+    def test_feed_query_count_does_not_grow_with_posts(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        for author in self.authors[:5]:
+            self.make_post(author)
+        with CaptureQueriesContext(connection) as small:
+            self.client.get("/api/posts/")
+        for author in self.authors:
+            self.make_post(author)
+            self.make_post(author)
+        with CaptureQueriesContext(connection) as large:
+            response = self.client.get("/api/posts/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["posts"]), 29)
+        self.assertEqual(len(large.captured_queries), len(small.captured_queries))
+
+    def test_liked_by_me_beyond_first_page_of_likes(self):
+        post = self.make_post(self.authors[1], n_comments=0, n_likes=0)
+        # 11 other people like it first, then the viewer: the viewer's like is not on page 1 of 10
+        for a in self.authors[1:12]:
+            Like.objects.create(author_id=a, object_id=post.id, content_type=self.post_ct, object_url=post.url)
+        Like.objects.create(author_id=self.viewer, object_id=post.id, content_type=self.post_ct, object_url=post.url)
+
+        likes = self.client.get(f"/api/authors/{self.viewer.id}/posts/{post.id}/likes/")
+        self.assertTrue(likes.data["liked_by_me"])
+        self.assertEqual(likes.data["count"], 12)
+
+        feed_post = self.client.get("/api/posts/").data["posts"][0]
+        self.assertTrue(feed_post["liked_by_me"])
+        self.assertEqual(feed_post["likes_count"], 12)
+
+    def test_author_comment_list_hides_comments_on_hidden_posts(self):
+        stranger = self.authors[1]
+        private = Post.objects.create(author_id=stranger, title="p", content="secret", content_type="text/plain", visibility="FRIENDS")
+        public = Post.objects.create(author_id=stranger, title="p", content="open", content_type="text/plain", visibility="PUBLIC")
+        Comment.objects.create(author_id=stranger, post_id=private, comment="private reply")
+        Comment.objects.create(author_id=stranger, post_id=public, comment="public reply")
+
+        response = self.client.get(f"/api/authors/{stranger.id}/commented/")
+        self.assertEqual([c["comment"] for c in response.data["src"]], ["public reply"])
+

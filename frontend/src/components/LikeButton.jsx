@@ -4,19 +4,19 @@ import React, { useEffect, useState, useRef } from 'react';
 import Cookies from 'js-cookie';
 import { createLike, getLikes } from '../services/LikesService';
 import { Favorite } from '@mui/icons-material';
-import { getAuthor } from '../services/AuthorsService';
+import { getCurrentAuthor } from '../services/AuthorsService';
 import '../styles/components/LikeButton.css';
 import { Author } from '../models/Author';
 import AuthorsListModal from '../components/AuthorsListModal';
 import mojs from '@mojs/core';
 
 const LikeButton = ({ post, posterId }) => {
-  const [likesCount, setLikesCount] = useState(0);
+  // the feed and profile include like counts with each post, so cards don't need a request each
+  const [likesCount, setLikesCount] = useState(post.likes_count ?? 0);
   const [showAuthorsModal, setShowAuthorsModal] = useState(false);
   const [authorsList, setAuthorsList] = useState([]);
-  const [isLiked, setIsLiked] = useState(false);
+  const [isLiked, setIsLiked] = useState(post.liked_by_me ?? false);
   const authorId = Cookies.get('author_id');
-  const [currentProfileData, setCurrentProfileData] = useState(null);
   const buttonRef = useRef(null); 
 
   // Initialize animation
@@ -80,48 +80,32 @@ const LikeButton = ({ post, posterId }) => {
     };
   }, [isLiked]);
 
-  //get likes w/ useEffect to update whenever post.id changes or page reloads
+  // posts that didn't come with like info (e.g. a single shared post) fetch it here
   useEffect(() => {
+    if (post.likes_count !== undefined) {
+      return;
+    }
     const fetchLikes = async () => {
       try {
         const likesResponse = await getLikes(authorId, post.id);
         setLikesCount(likesResponse.count);
-
-        //check if user liked post already
-        const userLike = likesResponse.src.find((like) => {
-          const authorUuid = like.author.id.split("authors/")[1].replace("/", "");
-          return authorUuid === authorId
-        }); //authors who liked post
-
-        if (userLike) {
-          setIsLiked(true);
-        }
+        // likes are paginated, so the server says directly whether this user liked the post
+        setIsLiked(!!likesResponse.liked_by_me);
       } catch (error) {
         console.error(error);
       }
     };
 
     fetchLikes();
-  }, [authorId, post.id]);
-
-  useEffect(() => {
-    getAuthor(authorId)
-      .then((data) => {
-        setCurrentProfileData(data);
-      })
-      .catch((error) => {
-        console.error(error);
-      });
-  }, []); //empty dependency list so that its only called once to get author info when component mounts
+  }, [authorId, post.id, post.likes_count]);
 
   const handleLike = async () => {
     if (!isLiked) {
       //create like object
       const post_id = post.id.replace(/\/$/, '');
-      const currentHost = window.location.origin; //getting host for post url
       const likeData = {
         type: 'like',
-        author: currentProfileData,
+        author: await getCurrentAuthor(authorId),
         object: `${post_id}/`,
       };
 
@@ -145,7 +129,7 @@ const LikeButton = ({ post, posterId }) => {
 
   const handleShowAuthors = async () => {
     try {
-      const likesResponse = await getLikes(authorId, post.id) //hitting endpoint again because if you like, you'll have to call getLikes anyways
+      const likesResponse = await getLikes(authorId, post.id, 100) //hitting endpoint again because if you like, you'll have to call getLikes anyways
 
       // store authors who liked the post
       const authors = likesResponse.src.map(
