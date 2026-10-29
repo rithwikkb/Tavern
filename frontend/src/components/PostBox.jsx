@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import Cookies from 'js-cookie';
 import { getMarkdownText } from '../utils/getMarkdownText';
 import { fullDate, timeAgo } from '../utils/timeAgo';
 import '../styles/components/PostBox.css';
@@ -9,15 +10,18 @@ import { BorderColor } from '@mui/icons-material';
 import shareLinkIcon from '../assets/share_link.png';
 import unknownUser from  '../assets/unknownUser.png';
 
-const PostBox = ({ post, poster, isUserEditable }) => {
+const PostBox = ({ post, poster }) => {
   const [showCopyNotification, setShowCopyNotification] = useState(false); // State for notification
   const navigate = useNavigate();
+  const location = useLocation();
 
   const authorId = post.author.id.split('/')[5];
   const postSerial = post.id.split('/').filter(Boolean).pop();
   const posterName = poster?.displayName || 'Anonymous';
   const posterImageUrl = poster?.profileImage || unknownUser;
   const postLink = `${window.location.origin}/post/${postSerial}`;
+  // your own posts can be edited wherever they appear (feed, profiles, shared links)
+  const isOwnPost = authorId === Cookies.get('author_id');
 
   const handleCopyLink = () => {
     navigator.clipboard
@@ -48,12 +52,13 @@ const PostBox = ({ post, poster, isUserEditable }) => {
           </Link>
           <p title={fullDate(post.published)}>{timeAgo(post.published)}</p>
         </div>
-        {isUserEditable && (
+        {isOwnPost && (
           <div className="post-edit">
             <button
               className="post-edit-button"
               aria-label="Edit post"
-              onClick={() => navigate(`/post/${postSerial}/edit`, { state: { postId: postSerial } })}
+              // remember where the edit started so saving returns there
+              onClick={() => navigate(`/post/${postSerial}/edit`, { state: { postId: postSerial, from: location.pathname } })}
             >
               <BorderColor className="post-edit-icon" />
             </button>

@@ -7,13 +7,14 @@ import MarkdownEditor from '../components/MarkdownEditor';
 import { createPost, getPost, updatePost } from '../services/PostsService';
 import { prepareImageForPost } from '../utils/prepareImage';
 import Cookies from 'js-cookie';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useLocation, useParams, useNavigate } from 'react-router-dom';
 
 const Post = () => {
   //#region Properties
   const authorId = Cookies.get('author_id');
   const { postId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [visibility, setVisibility] = useState('public');
   const [selectedOption, setSelectedOption] = useState('Plain');
 
@@ -123,7 +124,8 @@ const Post = () => {
         // Create a new post if no postId
         await createPost(authorId, postData);
       }
-      navigate(`/profile/${authorId}`);
+      // after an edit, go back to the page it was started from; new posts show on your profile
+      navigate(postId && location.state?.from ? location.state.from : `/profile/${authorId}`);
     } catch (error) {
       console.error('Error during post creation/updating:', error);
       setError(

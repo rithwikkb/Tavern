@@ -259,7 +259,6 @@ const Profile = () => {
               key={post.id}
               post={post}
               poster={profileData}
-              isUserEditable={isCurrentUser}
             />
           ))
         ) : (
