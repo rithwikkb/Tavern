@@ -9,6 +9,7 @@ import appLogo from  '../assets/Logo.png'
 const Login = () => {
   //#region Properties
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -26,6 +27,7 @@ const Login = () => {
 
     try {
       setLoading(true);
+      setError('');
       const response = await login(loginData);
       if (!response) {
         throw new Error('Login failed: No response');
@@ -36,10 +38,12 @@ const Login = () => {
       Cookies.set('access_token', access_token);
       Cookies.set('refresh_token', refresh_token);
 
-      setLoading(false);
       navigate('/');
     } catch (error) {
-      console.error('Login failed:', error);
+      // show the server's reason (wrong credentials, inactive account) when there is one
+      setError(error.response?.data?.error || 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
   //#endregion
@@ -52,6 +56,7 @@ const Login = () => {
       </div>
       <div className="login-container">
         <h1 className="login-title">Log In</h1>
+        {error && <div className="error-message" role="alert">{error}</div>}
         <form className="form-container" onSubmit={handleSubmit} method="post">
           <div className="form-group">
             <label className="input-label">Username</label>
@@ -73,7 +78,7 @@ const Login = () => {
           </div>
           
           <button className="login-button" type="submit" disabled={loading}>
-            Log In
+            {loading ? 'Logging in...' : 'Log In'}
           </button>
         </form>
         <div className="signup-link">

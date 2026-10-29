@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import Cookies from 'js-cookie';
 import { signup } from '../services/signupservice';
+import { login } from '../services/loginservice';
 import { useNavigate } from 'react-router-dom';
 import '../styles/pages/Signup.css';
 import SignUpImg from '../assets/signupImg.png';
@@ -78,12 +80,26 @@ const Signup = () => {
 
     try {
       // Submit the form data (with the uploaded profile image URL)
-      const result = await signup(formData);
-      console.log('Signup successful:', result);
+      await signup(formData);
+    } catch (err) {
+      setError(err.message || 'Signup failed. Please try again.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Log the new user straight in so they land on their feed
+      const { refresh_token, access_token, author_id } = await login({
+        username: formData.username,
+        password: formData.password,
+      });
+      Cookies.set('author_id', author_id);
+      Cookies.set('access_token', access_token);
+      Cookies.set('refresh_token', refresh_token);
       navigate('/');
     } catch (err) {
-      console.error('Signup failed:', err);
-      setError(err.message || 'Signup failed. Please try again.');
+      // account was created but auto-login failed; let them log in manually
+      navigate('/login');
     } finally {
       setLoading(false);
     }

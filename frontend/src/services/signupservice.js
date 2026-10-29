@@ -8,11 +8,9 @@ export const signup = async (signupData) => {
       },
       withCredentials: true,
     });
-    if (response.status === 201) {
-      // Redirect user to login after successful signup
-      window.location.href = '/login';
-    }
+    return response.data;
   } catch (error) {
-    console.error('Signup Error:', error.response?.data || error.message);
+    // surface the server's reason (e.g. "Username already exists.") to the signup form
+    throw new Error(error.response?.data?.message || 'Signup failed. Please try again.');
   }
 };
