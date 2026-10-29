@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   MenuOutlined,
   CottageOutlined,
@@ -10,6 +10,8 @@ import {
 } from '@mui/icons-material';
 import '../styles/components/NavigationBar.css';
 import Cookies from 'js-cookie';
+import api from '../services/axios';
+import { clearAuthCookies } from '../utils/authCookies';
 import appLogo from  '../assets/NavLogo.png'
 
 const NavigationBar = ({ expanded, onToggleExpanded }) => {
@@ -30,10 +32,21 @@ const NavigationBar = ({ expanded, onToggleExpanded }) => {
     onToggleExpanded(!expanded); 
   };
 
-  const handleLogout = () => {
-    Cookies.remove('author_id');
-    Cookies.remove('access_token');
-    Cookies.remove('refresh_token');
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    // revoke the refresh token on the server too, so a copied token stops working
+    const refresh = Cookies.get('refresh_token');
+    try {
+      if (refresh) {
+        await api.post('users/logout/', { refresh });
+      }
+    } catch (error) {
+      console.error('Logout request failed:', error);
+    } finally {
+      clearAuthCookies();
+      navigate('/login');
+    }
   };
   //#endregion
 

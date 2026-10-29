@@ -635,3 +635,99 @@ class StaleTokenLoginTest(TestCase):
         }, format="json")
         self.assertEqual(response.status_code, 201)
 
+
+class DemoResetTest(TestCase):
+    """Logging in as the demo undoes earlier visitors' changes, at most once per interval."""
+    def setUp(self):
+        from django.core.management import call_command
+        from io import StringIO
+        from django.conf import settings
+        call_command("seed_demo", "--site-url", "http://testserver", stdout=StringIO())
+        self.settings_ = settings
+        self.demo_author = Author.objects.get(user__username=settings.DEMO_USERNAME)
+
+    def login_demo(self):
+        client = APIClient()
+        response = client.post("/api/login/", {
+            "username": self.settings_.DEMO_USERNAME, "password": self.settings_.DEMO_PASSWORD,
+        }, format="json")
+        self.assertEqual(response.status_code, 200)
+        client.credentials(HTTP_AUTHORIZATION="Bearer " + response.data["access_token"])
+        return client
+
+    def make_visitor_mess(self, client):
+        from posts.models import Post, Like
+        demo_id = self.demo_author.id
+        # a visitor's own post, an unliked seeded post, and an accepted follow request
+        client.post(f"/api/authors/{demo_id}/posts/", {"title": "visitor", "content": "x", "contentType": "text/plain", "visibility": "PUBLIC"}, format="json")
+        sunset = Post.objects.get(title="Sunset from the ridge")
+        Like.objects.filter(author_id=self.demo_author, object_id=sunset.id).delete()
+        sam = Author.objects.get(user__username="sample_sam")
+        client.put(f"/api/authors/{demo_id}/followers/{sam.id}/")
+        return sunset, sam
+
+    def assert_clean(self, sunset, sam):
+        from posts.models import Post, Like
+        self.assertFalse(Post.objects.filter(title="visitor").exists())
+        self.assertTrue(Like.objects.filter(author_id=self.demo_author, object_id=sunset.id).exists())
+        self.assertEqual(Follows.objects.get(local_follower_id=sam, followed_id=self.demo_author).status, "PENDING")
+
+    def test_login_resets_demo(self):
+        from posts.models import Post
+        client = self.login_demo()
+        sunset, sam = self.make_visitor_mess(client)
+        self.assertTrue(Post.objects.filter(title="visitor").exists())
+
+        # pretend the last reset was long ago, as it would be for the next visitor
+        User.objects.filter(username=self.settings_.DEMO_USERNAME).update(last_login=None)
+        self.login_demo()
+        self.assert_clean(sunset, sam)
+
+    def test_no_reset_within_interval(self):
+        from posts.models import Post
+        client = self.login_demo()  # resets and starts the interval
+        self.make_visitor_mess(client)
+        self.login_demo()  # second visitor right away: leave the first visitor's work alone
+        self.assertTrue(Post.objects.filter(title="visitor").exists())
+
+    def test_reset_keeps_real_users_content(self):
+        from posts.models import Post, Comment
+        real = User.objects.create_user(username="realperson", password="Tavern-strong-pass-42")
+        real_author = Author.objects.create(display_name="Real", host="http://testserver", user=real)
+        welcome = Post.objects.get(title="Welcome to Tavern 👋")
+        Comment.objects.create(author_id=real_author, post_id=welcome, comment="hello from a real user")
+        Post.objects.create(author_id=real_author, title="real post", content="c", content_type="text/plain")
+
+        User.objects.filter(username=self.settings_.DEMO_USERNAME).update(last_login=None)
+        self.login_demo()
+        self.assertTrue(Comment.objects.filter(comment="hello from a real user").exists())
+        self.assertTrue(Post.objects.filter(title="real post").exists())
+
+
+class LogoutAndCookiesTest(TestCase):
+    def setUp(self):
+        user = User.objects.create_user(username="leaver", password="Tavern-strong-pass-42")
+        Author.objects.create(display_name="Leaver", host="http://testserver", user=user)
+        self.client_ = APIClient()
+
+    def test_login_sets_no_server_cookies(self):
+        response = self.client_.post("/api/login/", {"username": "leaver", "password": "Tavern-strong-pass-42"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.cookies), 0)
+
+    def test_logout_revokes_refresh_token(self):
+        tokens = self.client_.post("/api/login/", {"username": "leaver", "password": "Tavern-strong-pass-42"}, format="json").data
+        refresh = tokens["refresh_token"]
+        self.assertEqual(self.client_.post("/api/users/token/refresh/", {"refresh": refresh}, format="json").status_code, 200)
+
+        # a fresh login so the token we revoke hasn't already been rotated
+        tokens = self.client_.post("/api/login/", {"username": "leaver", "password": "Tavern-strong-pass-42"}, format="json").data
+        response = self.client_.post("/api/users/logout/", {"refresh": tokens["refresh_token"]}, format="json")
+        self.assertEqual(response.status_code, 200)
+        reuse = self.client_.post("/api/users/token/refresh/", {"refresh": tokens["refresh_token"]}, format="json")
+        self.assertEqual(reuse.status_code, 401)
+
+    def test_logout_with_bad_token_still_succeeds(self):
+        response = self.client_.post("/api/users/logout/", {"refresh": "garbage"}, format="json")
+        self.assertEqual(response.status_code, 200)
+

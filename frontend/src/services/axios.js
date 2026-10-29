@@ -1,5 +1,6 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
+import { clearAuthCookies, setAuthCookies } from '../utils/authCookies';
 
 const api = axios.create({
   baseURL: `${window.location.origin}/api/`,
@@ -41,11 +42,8 @@ const refreshAccessToken = (refreshToken) => {
       })
       .then((response) => {
         const accessToken = response.data['access'];
-        Cookies.set('access_token', accessToken, { sameSite: 'strict' });
         // refresh tokens are rotated, so keep the new one for next time
-        if (response.data['refresh']) {
-          Cookies.set('refresh_token', response.data['refresh'], { sameSite: 'strict' });
-        }
+        setAuthCookies({ accessToken, refreshToken: response.data['refresh'] });
         return accessToken;
       })
       .finally(() => {
@@ -72,9 +70,7 @@ api.interceptors.response.use(
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
           return axios(originalRequest);
         } catch (refreshError) {
-          Cookies.remove('access_token');
-          Cookies.remove('refresh_token');
-          Cookies.remove('author_id');
+          clearAuthCookies();
           // session has fully expired; send the user back to log in
           // (unless they're already there, so the login page can show its own errors)
           const onAuthPage = ['/login', '/signup'].some((path) =>

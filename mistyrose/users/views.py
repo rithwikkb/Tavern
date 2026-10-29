@@ -1,3 +1,4 @@
+import logging
 from urllib.parse import urlparse
 from django.shortcuts import render
 import os
@@ -11,6 +12,7 @@ from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView  
 from rest_framework.permissions import IsAuthenticated, AllowAny  
 from rest_framework_simplejwt.tokens import RefreshToken  
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.authentication import JWTAuthentication  
 from django.contrib.auth.models import User  
 from django.db import transaction  
@@ -34,7 +36,10 @@ from rest_framework.exceptions import NotFound
 from rest_framework.throttling import ScopedRateThrottle
 import urllib.parse
 
+from .demo import maybe_reset_demo_account
 from .utils import is_fqid, upload_to_imgur, is_request_author, get_request_author, are_friends, parse_uuid, validate_web_url
+
+logger = logging.getLogger(__name__)
 
 # Default profile picture URL to be used when no image is provided
 DEFAULT_PROFILE_PIC = "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png"
@@ -88,6 +93,13 @@ class LoginView(APIView):
             # e.g. an admin account made with createsuperuser, which has no author profile
             return Response({"error": "This account can only sign in to the admin panel."}, status=status.HTTP_403_FORBIDDEN)
         author_id = author.id
+
+        # give each new demo visitor a clean demo (skipped if someone reset it in the last few minutes)
+        try:
+            maybe_reset_demo_account(user)
+        except Exception:
+            logger.exception("Demo account reset failed")
+
         refresh = RefreshToken.for_user(user)  # Generate JWT refresh token for the user
         access_token = str(refresh.access_token)  # Get the access token from the refresh token
         
@@ -97,32 +109,6 @@ class LoginView(APIView):
             "refresh_token": str(refresh),
             "access_token": access_token
         }, status=status.HTTP_200_OK)
-
-        # Set tokens in cookies for client-side usage (set to secure=False in this case)
-        response.set_cookie(
-            'author_id', 
-            author_id, 
-            httponly=True, 
-            secure=False,  # Should be True in production when using HTTPS
-            samesite='None',
-            path='/'
-        )
-        response.set_cookie(
-            'access_token', 
-            access_token, 
-            httponly=True, 
-            secure=False, 
-            samesite='None',
-            path='/'
-        )
-        response.set_cookie(
-            'refresh_token', 
-            str(refresh), 
-            httponly=True, 
-            secure=False, 
-            samesite='None',
-            path='/'
-        )
 
         return response  # Return the final response containing the tokens
 
@@ -219,17 +205,19 @@ class SignUpView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 class LogoutView(APIView):
-    permission_classes = [IsAuthenticated]
+    # Revoking a refresh token only needs the token itself, so this works even
+    # after the short-lived access token has expired.
+    permission_classes = [AllowAny]
+    authentication_classes = []
 
     def post(self, request):
-        try:
-            refresh_token = request.COOKIES.get('refresh_token')
-            if refresh_token:
-                token = RefreshToken(refresh_token)
-                token.blacklist()
-            return Response({"message": "Logged out successfully."}, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"message": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        refresh_token = request.data.get('refresh') or request.COOKIES.get('refresh_token')
+        if refresh_token:
+            try:
+                RefreshToken(refresh_token).blacklist()
+            except TokenError:
+                pass  # already expired or revoked: the session is over either way
+        return Response({"message": "Logged out successfully."}, status=status.HTTP_200_OK)
 
 # View for verifying if a JWT token is still valid
 class VerifyTokenView(APIView):

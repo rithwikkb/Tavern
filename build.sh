@@ -7,8 +7,9 @@ pip install -r requirements.txt
 
 cd frontend
 npm ci
-# CI=false keeps existing lint warnings from failing the build
-CI=false npm run build
+# CI=false keeps existing lint warnings from failing the build;
+# GENERATE_SOURCEMAP=false stops publishing the original source alongside the bundle
+CI=false GENERATE_SOURCEMAP=false npm run build
 cd ..
 
 cd mistyrose

@@ -258,6 +258,8 @@ SIGNUP_REQUIRES_APPROVAL = os.environ.get("SIGNUP_REQUIRES_APPROVAL", "False").l
 # The password is public on purpose (it's shown to visitors), so the account's profile can't be edited.
 DEMO_USERNAME = "demo"
 DEMO_PASSWORD = "TavernDemo2026"
+# Logging in as the demo restores its seeded state, at most this often (see users/demo.py)
+DEMO_RESET_INTERVAL_MINUTES = 10
 # Usernames reserved for seeded sample people (see seed_demo)
 SAMPLE_USERNAME_PREFIX = "sample_"
 
