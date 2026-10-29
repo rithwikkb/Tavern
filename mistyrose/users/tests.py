@@ -255,8 +255,10 @@ class FollowRequestTestCase(TestCase):
             profile_image='http://example.com/author2/image'
         )
 
-        # Create test user
+        # Create test user; they are author2, who receives the follow request
         self.user = User.objects.create_user(username='testuser', password='testpass')
+        self.author2.user = self.user
+        self.author2.save()
 
         # Generate JWT token for the user
         refresh = RefreshToken.for_user(self.user)

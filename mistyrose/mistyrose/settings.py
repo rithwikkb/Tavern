@@ -193,6 +193,10 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    # Rates for views that opt in with throttle_scope
+    'DEFAULT_THROTTLE_RATES': {
+        'image_upload': os.environ.get('IMAGE_UPLOAD_RATE', '10/hour'),
+    },
 }
 # JWT settings
 SIMPLE_JWT = {

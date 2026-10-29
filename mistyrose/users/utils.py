@@ -3,6 +3,37 @@ import uuid
 import requests
 from django.conf import settings
 
+def get_request_author(request):
+    """
+    Return the Author profile of the logged-in user, or None.
+    """
+    from users.models import Author
+
+    user = getattr(request, 'user', None)
+    if not user or not user.is_authenticated:
+        return None
+    return Author.objects.filter(user=user).first()
+
+def is_request_author(request, *author_ids):
+    """
+    Check whether the logged-in user is one of the given authors.
+    """
+    author = get_request_author(request)
+    if author is None:
+        return False
+    return str(author.id) in {str(author_id) for author_id in author_ids}
+
+def are_friends(author_a, author_b):
+    """
+    Two authors are friends when each follows the other.
+    """
+    from users.models import Follows
+
+    return (
+        Follows.objects.filter(local_follower_id=author_a, followed_id=author_b, status='ACCEPTED').exists()
+        and Follows.objects.filter(local_follower_id=author_b, followed_id=author_a, status='ACCEPTED').exists()
+    )
+
 def is_fqid(value):
     """
     Check if the value is an FQID (a URL) or a SERIAL (integer).

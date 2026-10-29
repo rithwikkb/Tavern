@@ -6,8 +6,8 @@ from .serializers import FollowSerializer
 from users.models import Author, Follows
 from django.shortcuts import get_object_or_404
 from rest_framework import status  
-from .utils import handle_follow_request, handle_post_inbox, handle_comment_inbox, handle_like_inbox
-from users.utils import is_fqid
+from .utils import handle_follow_request
+from users.utils import is_fqid, is_request_author
 
 class InboxView(APIView):
     """
@@ -28,24 +28,11 @@ class InboxView(APIView):
         object_type = request.data.get('type')
         author = get_object_or_404(Author, id=author_id)
 
+        # only follow requests are delivered through the inbox
         if object_type == "follow":
-            response = handle_follow_request(request, author)
-            return response
+            return handle_follow_request(request, author)
 
-        elif object_type == "post":
-            response = handle_post_inbox(request, author, author_id)
-            return response
-            
-        elif object_type == "comment":
-            response = handle_comment_inbox(request, author, author_id)
-        
-        elif object_type == "like":
-            response = handle_like_inbox(request, author, author_id)
-        
-        else:
-            return Response({"Error": f"Unsupported inbox object type: {object_type}"}, status=status.HTTP_400_BAD_REQUEST)
-        
-        return response
+        return Response({"error": f"Unsupported inbox object type: {object_type}"}, status=status.HTTP_400_BAD_REQUEST)
 
 class FollowRequests(APIView):
     """
@@ -62,6 +49,8 @@ class FollowRequests(APIView):
         except:
             return Response({"error": "FollowRequests - GET - Invalid FQID or SERIAL."}, status=status.HTTP_400_BAD_REQUEST)
         author = get_object_or_404(Author, id=author_id)
+        if not is_request_author(request, author.id):
+            return Response({"error": "You can only view your own follow requests."}, status=status.HTTP_403_FORBIDDEN)
         pending_follow_requests = Follows.objects.filter(followed_id=author, status='PENDING')
 
         serialized_data = FollowSerializer(pending_follow_requests, many=True).data

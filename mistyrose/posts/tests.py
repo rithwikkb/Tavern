@@ -1083,105 +1083,178 @@ class DeletePostTestCase(APITestCase):
         # Verify the visibility in the response
         self.assertEqual(response.data.get("visibility"), "DELETED")
 
-# User Story #9 Test: As an author, I want my node to send my posts to my remote followers and friends.
-class PostDeliveryTestCase(APITestCase):
+# User Story #9 Test: As an author, I want my posts to be visible to the right people.
+class PostVisibilityTestCase(APITestCase):
     def setUp(self):
-        # Create two users and corresponding authors
         self.user_a = User.objects.create_user(username="user_a", password="pass_a")
-        self.author_a = Author.objects.create(
-            id=uuid.uuid4(),
-            display_name="Author A",
-            host="http://localhost",
-            user=self.user_a
-        )
+        self.author_a = Author.objects.create(display_name="Author A", host="http://testserver", user=self.user_a)
         self.user_b = User.objects.create_user(username="user_b", password="pass_b")
-        self.author_b = Author.objects.create(
-            id=uuid.uuid4(),
-            display_name="Author B",
-            host="http://remote.node",
-            user=self.user_b
-        )
-        # Set up API client and authentication
+        self.author_b = Author.objects.create(display_name="Author B", host="http://testserver", user=self.user_b)
         self.client = APIClient()
-        self.login_user_a()
-    def login_user_a(self):
-        # Log in to User A and set up authentication
-        login_url = "/api/login/"
-        response = self.client.post(
-            login_url,
-            {"username": "user_a", "password": "pass_a"},
-            format="json"
-        )
-        # print("Login response status code:", response.status_code)
-        # print("Login response content:", response.content)
-        
-        self.assertEqual(response.status_code, status.HTTP_200_OK, "Login failed for User A")
-        token = response.data.get("access_token")
-        self.assertIsNotNone(token, "No access token returned for User A")
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+
+    def login_as(self, user):
+        refresh = RefreshToken.for_user(user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
+
     def create_follow_relationship(self, follower, followed):
-        # Create following relationship
-        Follows.objects.create(
-            local_follower_id=follower,
-            followed_id=followed,
-            is_remote=False,
-            status="ACCEPTED"
+        Follows.objects.create(local_follower_id=follower, followed_id=followed, status="ACCEPTED")
+
+    def make_post(self, visibility):
+        return Post.objects.create(
+            author_id=self.author_a,
+            title=f"{visibility} post",
+            content="content",
+            content_type="text/plain",
+            visibility=visibility,
         )
-    def test_public_post_visible_to_remote_author(self):
-        """Test whether PUBLIC posts are visible to remote authors (no following relationship required)"""
-        post_id = uuid.uuid4()
-        post_data = {
-            "type": "post",
-            "id": f"http://localhost/api/authors/{self.author_a.id}/posts/{post_id}/",
-            "title": "Public Test Post",
-            "content": "This is a public test post.",
-            "visibility": "PUBLIC",
-            "contentType": "text/plain",
-            "author": {
-                "id": str(self.author_a.id),
-                "host": "http://localhost",
-                "displayName": "Author A",
-                "url": f"http://localhost/authors/{self.author_a.id}/",
-                "github": "",
-                "profileImage": "",
-                "page": f"http://localhost/authors/{self.author_a.id}/"  # Make sure to include 'page'
-            }
-        }
-        response = self.client.post(f"/api/authors/{self.author_b.id}/inbox/", post_data, format="json")
-        # print("Response data (public post):", response.data)
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def get_post_as_b(self, post):
+        self.login_as(self.user_b)
+        return self.client.get(reverse("post-detail", args=[self.author_a.id, post.id]))
+
+    def test_public_post_visible_to_other_author(self):
+        response = self.get_post_as_b(self.make_post("PUBLIC"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
     def test_friends_post_visible_to_friend(self):
-        """Test whether FRIENDS posts are visible to friends (follow each other)"""
-        # Create a two-way following relationship
         self.create_follow_relationship(self.author_a, self.author_b)
         self.create_follow_relationship(self.author_b, self.author_a)
-        # Verify following relationship
-        follows_a_to_b = Follows.objects.filter(local_follower_id=self.author_a, followed_id=self.author_b).exists()
-        follows_b_to_a = Follows.objects.filter(local_follower_id=self.author_b, followed_id=self.author_a).exists()
-        # print("Follows A->B:", follows_a_to_b)
-        # print("Follows B->A:", follows_b_to_a)
-        self.assertTrue(follows_a_to_b and follows_b_to_a, "The two-way following relationship has not been established")
-        post_id = uuid.uuid4()
-        post_data = {
-            "type": "post",
-            "id": f"http://localhost/api/authors/{self.author_a.id}/posts/{post_id}/",
-            "title": "Friends Test Post",
-            "content": "This is a friends test post.",
-            "visibility": "FRIENDS",
-            "contentType": "text/plain",
-            "author": {
-                "id": str(self.author_a.id),
-                "host": "http://localhost",
-                "displayName": "Author A",
-                "url": f"http://localhost/authors/{self.author_a.id}/",
-                "github": "",
-                "profileImage": "",
-                "page": f"http://localhost/authors/{self.author_a.id}/"
-            }
-        }
-        response = self.client.post(f"/api/authors/{self.author_b.id}/inbox/", post_data, format="json")
-        # print("Response data (friends post):", response.data)
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        response = self.get_post_as_b(self.make_post("FRIENDS"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_friends_post_hidden_from_non_friend(self):
+        # a one-way follow is not a friendship
+        self.create_follow_relationship(self.author_b, self.author_a)
+        response = self.get_post_as_b(self.make_post("FRIENDS"))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_deleted_post_hidden_from_others(self):
+        response = self.get_post_as_b(self.make_post("DELETED"))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_author_posts_list_hides_friends_posts_from_non_friend(self):
+        self.make_post("PUBLIC")
+        self.make_post("FRIENDS")
+        self.login_as(self.user_b)
+        response = self.client.get(reverse("author-posts", args=[self.author_a.id]))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([p["visibility"] for p in response.data["src"]], ["PUBLIC"])
+
+    def test_profile_hides_friends_posts_from_non_friend(self):
+        self.make_post("FRIENDS")
+        self.login_as(self.user_b)
+        response = self.client.get(f"/api/authors/{self.author_a.id}/profile/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["friends_posts"], [])
+
+        # the author still sees their own friends-only posts
+        self.login_as(self.user_a)
+        response = self.client.get(f"/api/authors/{self.author_a.id}/profile/")
+        self.assertEqual(len(response.data["friends_posts"]), 1)
+
+
+class OwnershipTestCase(APITestCase):
+    """
+    Users can only act as themselves: no editing other people's posts or profiles,
+    and no posting, commenting, liking or following on someone else's behalf.
+    """
+    def setUp(self):
+        self.user_a = User.objects.create_user(username="owner", password="pass_a")
+        self.author_a = Author.objects.create(display_name="Owner", host="http://testserver", user=self.user_a)
+        self.user_b = User.objects.create_user(username="intruder", password="pass_b")
+        self.author_b = Author.objects.create(display_name="Intruder", host="http://testserver", user=self.user_b)
+        self.post = Post.objects.create(
+            author_id=self.author_a, title="Mine", content="original", content_type="text/plain", visibility="PUBLIC"
+        )
+        # log in as the intruder for every request
+        refresh = RefreshToken.for_user(self.user_b)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
+
+    def test_cannot_edit_someone_elses_post(self):
+        response = self.client.put(
+            reverse("post-detail", args=[self.author_a.id, self.post.id]),
+            {"title": "Hacked", "content": "hacked", "visibility": "PUBLIC"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.content, "original")
+
+    def test_cannot_create_post_as_someone_else(self):
+        response = self.client.post(
+            reverse("author-posts", args=[self.author_a.id]),
+            {"title": "Fake", "content": "fake", "contentType": "text/plain", "visibility": "PUBLIC"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(Post.objects.filter(author_id=self.author_a).count(), 1)
+
+    def test_cannot_comment_as_someone_else(self):
+        response = self.client.post(
+            f"/api/authors/{self.author_a.id}/commented/",
+            {"type": "comment", "post": self.post.url, "comment": "fake", "contentType": "text/plain"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_cannot_like_as_someone_else(self):
+        response = self.client.post(
+            f"/api/authors/{self.author_a.id}/liked/",
+            {"type": "like", "object": self.post.url},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(Like.objects.exists())
+
+    def test_cannot_edit_someone_elses_profile(self):
+        response = self.client.put(
+            f"/api/authors/{self.author_a.id}/profile/edit/",
+            {"display_name": "Hacked"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.author_a.refresh_from_db()
+        self.assertEqual(self.author_a.display_name, "Owner")
+
+    def test_cannot_accept_someone_elses_follow_request(self):
+        stranger = Author.objects.create(display_name="Stranger", host="http://testserver")
+        Follows.objects.create(local_follower_id=stranger, followed_id=self.author_a, status="PENDING")
+        response = self.client.put(f"/api/authors/{self.author_a.id}/followers/{stranger.id}/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(Follows.objects.get(local_follower_id=stranger).status, "PENDING")
+
+    def test_cannot_send_follow_request_as_someone_else(self):
+        third = Author.objects.create(display_name="Third", host="http://testserver")
+        response = self.client.post(
+            f"/api/authors/{third.id}/inbox/",
+            {"type": "follow", "actor": {"id": self.author_a.url}, "object": {"id": third.url}},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(Follows.objects.exists())
+
+    def test_inbox_rejects_posts(self):
+        response = self.client.post(
+            f"/api/authors/{self.author_b.id}/inbox/",
+            {"type": "post", "id": self.post.url, "title": "Hacked", "content": "hacked", "visibility": "PUBLIC"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.content, "original")
+
+
+class TrailingSlashRedirectTestCase(TestCase):
+    def test_redirect_stays_on_site(self):
+        for path in ["//evil.example.com", "/\\evil.example.com"]:
+            response = self.client.get(path, PATH_INFO=path)
+            location = response.get("Location", "")
+            self.assertFalse(location.startswith("//") or location.startswith("/\\"), location)
+
+    def test_redirect_keeps_query_string(self):
+        response = self.client.get("/api/authors?page=2&size=5")
+        self.assertEqual(response.status_code, 308)
+        self.assertEqual(response["Location"], "/api/authors/?page=2&size=5")
 
 # User Story #11 Test: As an author, I want my node to re-send posts I've edited to everywhere they were already sent, so that people don't keep seeing the old version.
 class PostEditResendTestCase(APITestCase):

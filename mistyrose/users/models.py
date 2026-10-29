@@ -4,7 +4,6 @@ from django.db import models
 import uuid
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from users.utils import upload_to_imgur
 
 class Author(models.Model):
     # Each author will have a unique identifier (UUID).

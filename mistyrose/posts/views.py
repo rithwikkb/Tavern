@@ -4,7 +4,7 @@ import uuid
 from django.shortcuts import render
 import requests
 
-from users.utils import is_fqid
+from users.utils import is_fqid, is_request_author, get_request_author, are_friends
 from users.models import Author
 from rest_framework import status
 from rest_framework.views import APIView
@@ -31,6 +31,21 @@ from rest_framework.pagination import PageNumberPagination
 
 #region Post Views
 
+def can_view_post(request, post):
+    '''
+    Public, unlisted and shared posts are visible to everyone; friends-only posts
+    to the author and their friends; deleted posts only to the author.
+    '''
+    if post.visibility in ('PUBLIC', 'UNLISTED', 'SHARED'):
+        return True
+    viewer = get_request_author(request)
+    if viewer is None:
+        return False
+    if viewer.id == post.author_id_id:
+        return True
+    return post.visibility == 'FRIENDS' and are_friends(viewer, post.author_id)
+
+
 class PostDetailsView(APIView):
     """
     Retrieve, update or delete a post instance by author ID & post ID.
@@ -55,6 +70,9 @@ class PostDetailsView(APIView):
                 post_serial = Post.objects.get(url=post_serial).id
             post = Post.objects.get(id=post_serial, author_id=author_serial)
         except:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        if not can_view_post(request, post):
             return Response(status=status.HTTP_404_NOT_FOUND)
         
         # Get related objects for comments and likes
@@ -178,6 +196,9 @@ class PostDetailsView(APIView):
                 author = Author.objects.get(id=author_serial)
             except Author.DoesNotExist:
                 return Response({"error": f"Author {author_serial} not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            if not is_request_author(request, author.id):
+                return Response({"error": "You can only edit your own posts."}, status=status.HTTP_403_FORBIDDEN)
             
             # serialize the updated post
             serializer = PostSerializer(old_post, data=request.data)
@@ -200,107 +221,8 @@ class PostDetailsByFqidView(APIView):
             post = Post.objects.get(url=post_fqid)
         except Post.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
-        
-        # Get related objects for comments and likes
-        comments = post.comments.all()
-        likes = post.likes.all()
 
-        # Get the author of the post
-        author = post.author_id
-        
-        # Prepare the post data with dynamic links from the database
-        post_data = {
-            "type": "post",
-            "title": post.title,
-            "id": post.url,
-            "description": post.description,
-            "contentType": post.content_type,
-            "content": post.content,
-            "author": {
-                "type": "author",
-                "id": author.url,
-                "host": author.host,
-                "displayName": author.display_name,
-                "page": author.page,
-                "github": author.github,
-                "profileImage": author.profile_image
-            },
-            "comments": {
-                "type": "comments",
-                "page": post.url,  # Page URL for the comments
-                "id": post.url + "/comments",  # Custom URL for comments
-                "page_number": 1,
-                "size": len(comments),
-                "count": post.comments.count(),
-                "src": []
-            },
-            "likes": {
-                "type": "likes",
-                "page": post.url,  # Likes page URL
-                "id": post.url + "/likes",  # Custom URL for likes
-                "page_number": 1,
-                "size": len(likes),
-                "count": post.likes.count(),
-                "src": []
-            },
-            "published": post.published.isoformat(),
-            "visibility": post.visibility
-        }
-
-        # Collect comments data
-        for comment in comments:
-            comment_data = {
-                "type": "comment",
-                "author": {
-                    "type": "author",
-                    "id": comment.author_id.url,
-                    "page": comment.author_id.page,
-                    "host": comment.author_id.host,
-                    "displayName": comment.author_id.display_name,
-                    "github": comment.author_id.github,
-                    "profileImage": comment.author_id.profile_image
-                },
-                "comment": comment.comment,
-                "contentType": comment.content_type,
-                "published": comment.published.isoformat(),
-                "id": comment.url,
-                "post": post.url,
-                "page": comment.page,
-            }
-            post_data["comments"]["src"].append(comment_data)
-
-        # Collect likes data
-        for like in likes:
-            like_data = {
-                "type": "like",
-                "author": {
-                    "type": "author",
-                    "id": like.author_id.url,
-                    "page": like.author_id.page,
-                    "host": like.author_id.host,
-                    "displayName": like.author_id.display_name,
-                    "github": like.author_id.github,
-                    "profileImage": like.author_id.profile_image
-                },
-                "published": like.published.isoformat(),
-                "id": like.url,
-                "object": post.url
-            }
-            post_data["likes"]["src"].append(like_data)
-
-        return Response(post_data)
-    
-
-'''
-class PostDetailsByFqidView(APIView):
-    """
-    Retrieve post by Fully Qualified ID (URL + ID).
-    """
-
-    def get(self, request, post_fqid):
-        try:
-            post = Post.objects.get(url=post_fqid)
-        except Post.DoesNotExist:
+        if not can_view_post(request, post):
             return Response(status=status.HTTP_404_NOT_FOUND)
         
         # Get related objects for comments and likes
@@ -391,7 +313,8 @@ class PostDetailsByFqidView(APIView):
             post_data["likes"]["src"].append(like_data)
 
         return Response(post_data)
-'''
+
+
 class AuthorPostsView(APIView):
     """
     List all posts by an author, or create a new post for the author.
@@ -411,7 +334,7 @@ class AuthorPostsView(APIView):
         except:
             return Response({"error": "AuthorPostsView - GET - Invalid FQID or SERIAL."}, status=status.HTTP_400_BAD_REQUEST)
         
-        posts = Post.objects.filter(author_id=author_serial)
+        posts = [post for post in Post.objects.filter(author_id=author_serial) if can_view_post(request, post)]
 
         all_post_data = []
 
@@ -536,6 +459,9 @@ class AuthorPostsView(APIView):
             except Author.DoesNotExist:
                 return Response({"error": f"Author {author_serial} not found."}, status=status.HTTP_404_NOT_FOUND)
 
+            if not is_request_author(request, author.id):
+                return Response({"error": "You can only create posts as yourself."}, status=status.HTTP_403_FORBIDDEN)
+
             serializer = PostSerializer(data=request.data)
             # create post locally
             if serializer.is_valid():
@@ -570,6 +496,8 @@ class PostImageView(APIView):
         
         author = get_object_or_404(Author, id=author_serial)
         post = get_object_or_404(Post, author_id=author, id=post_serial)
+        if not can_view_post(request, post):
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
         if not post.content_type.startswith('image/'):
             return Response({'detail': 'No image available for this post'}, status=status.HTTP_404_NOT_FOUND)
@@ -698,6 +626,8 @@ class CommentedView(APIView):
         
         #author who created the comment
         author = get_object_or_404(Author, id=author_serial)
+        if not is_request_author(request, author.id):
+            return Response({"error": "You can only comment as yourself."}, status=status.HTTP_403_FORBIDDEN)
        
         comment_data = request.data
         request_type = comment_data.get('type')
@@ -961,6 +891,8 @@ class LikedView(APIView):
         
         #author who created the like
         author = get_object_or_404(Author, id=author_serial)
+        if not is_request_author(request, author.id):
+            return Response({"error": "You can only like as yourself."}, status=status.HTTP_403_FORBIDDEN)
        
         like_data = request.data
         request_type = like_data.get('type')

@@ -28,9 +28,10 @@ from posts.serializers import PostSerializer
 from uuid import UUID 
 from urllib.parse import urlparse
 from rest_framework.exceptions import NotFound
+from rest_framework.throttling import ScopedRateThrottle
 import urllib.parse
 
-from .utils import is_fqid, upload_to_imgur
+from .utils import is_fqid, upload_to_imgur, is_request_author, get_request_author, are_friends
 
 # Default profile picture URL to be used when no image is provided
 DEFAULT_PROFILE_PIC = "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png"
@@ -229,55 +230,6 @@ class AuthorDetailView(generics.RetrieveAPIView):
 #     serializer_class = AuthorSerializer  # Use the AuthorSerializer for serialization
 #     lookup_field = 'pk'  # The lookup field used for retrieving a specific author is the primary key
 
-'''
-class AuthorProfileView(APIView):
-    def get(self, request, pk):
-        # Retrieve the author instance by primary key (pk)
-        author = get_object_or_404(Author, pk=pk)
-        
-        # Use FriendsView to get the author's friends
-        friends_view = FriendsView()
-        friends_response = friends_view.get(request, author_id=pk)
-        friends_data = friends_response.data.get('friends', [])
-
-        # Calculate the number of friends based on the retrieved friends data
-        friends_count = len(friends_data)
-        
-        # Get the count of followers (accepted follow requests)
-        followers_count = Follows.objects.filter(followed_id=author, status='ACCEPTED').count()
-        
-        # Get the count of people the author is following (accepted follow requests)
-        following_count = Follows.objects.filter(local_follower_id=author, status='ACCEPTED').count()
-        
-        # Retrieve posts by the author, filtered by visibility
-        public_posts = Post.objects.filter(author_id=author, visibility='PUBLIC').order_by('-published')
-        friends_posts = Post.objects.filter(author_id=author, visibility='FRIENDS').order_by('-published')
-        unlisted_posts = Post.objects.filter(author_id=author, visibility='UNLISTED').order_by('-published')
-        shared_posts = Post.objects.filter(author_id=author, visibility='SHARED').order_by('-published')
-
-        # Serialize the author data
-        author_serializer = AuthorSerializer(author)
-        
-        # Serialize the posts data
-        public_post_serializer = PostSerializer(public_posts, many=True)
-        friends_post_serializer = PostSerializer(friends_posts, many=True)
-        unlisted_post_serializer = PostSerializer(unlisted_posts, many=True)
-        shared_post_serializer = PostSerializer(shared_posts, many=True)
-        
-        # Prepare the response data
-        data = author_serializer.data
-        data['friends_count'] = friends_count
-        data['followers_count'] = followers_count
-        data['following_count'] = following_count
-        data['public_posts'] = public_post_serializer.data
-        data['friends_posts'] = friends_post_serializer.data
-        data['unlisted_posts'] = unlisted_post_serializer.data
-        data['shared_posts'] = shared_post_serializer.data
-        
-        # Return the prepared response
-        return Response(data)
-'''
-
 class AuthorProfileView(APIView):
     def get_friends_count(self, request, pk):
         """Retrieve the count of mutual friends using FriendsView."""
@@ -330,7 +282,10 @@ class AuthorProfileView(APIView):
         followers_count = self.get_follower_count(author)
         following_count = self.get_following_count(author)
         public_posts = self.get_author_posts(author, 'PUBLIC')
-        friends_posts = self.get_author_posts(author, 'FRIENDS')
+        # friends-only posts are shown to the author and their friends only
+        viewer = get_request_author(request)
+        can_see_friends_posts = viewer is not None and (viewer.id == author.id or are_friends(viewer, author))
+        friends_posts = self.get_author_posts(author, 'FRIENDS') if can_see_friends_posts else []
         unlisted_posts = self.get_author_posts(author, 'UNLISTED')
         shared_posts = self.get_author_posts(author, 'SHARED')
         
@@ -383,6 +338,9 @@ class AuthorEditProfileView(APIView):
             pk = uuid.UUID(pk)
             author = get_object_or_404(Author, pk=pk)
         
+        if not is_request_author(request, author.id):
+            return Response({"error": "You can only edit your own profile."}, status=status.HTTP_403_FORBIDDEN)
+
         # Deserialize and validate the incoming data
         serializer = AuthorEditProfileSerializer(author, data=request.data)
         if serializer.is_valid():
@@ -456,6 +414,10 @@ class FollowerView(APIView):
         return Response({"status": "Follow request not found"}, status=status.HTTP_404_NOT_FOUND)
 
     def put(self, request, author_id, follower_id):        
+        # only the author being followed can accept a request
+        if not is_request_author(request, author_id):
+            return Response({"error": "You can only accept your own follow requests."}, status=status.HTTP_403_FORBIDDEN)
+
         # get follow_request
         follow_request = Follows.objects.filter(followed_id=author_id, local_follower_id=follower_id).first()
         
@@ -471,6 +433,9 @@ class FollowerView(APIView):
 
 
     def delete(self, request, author_id, follower_id):
+        # the followed author can deny/remove a follower, and the follower can unfollow
+        if not is_request_author(request, author_id, follower_id):
+            return Response({"error": "You can only remove follows you are part of."}, status=status.HTTP_403_FORBIDDEN)
         
         # get follow_request
         follow_request = Follows.objects.filter(followed_id=author_id, local_follower_id=follower_id).first()
@@ -495,6 +460,9 @@ class UnfollowView(APIView):
             follower_id = UUID(follower_id)
         except ValueError:
             return Response({'error': 'Invalid author or follower ID format.'}, status=400)
+
+        if not is_request_author(request, author_id, follower_id):
+            return Response({'error': 'You can only remove follows you are part of.'}, status=403)
         
         try:
             # find corresponding follow relationship
@@ -637,8 +605,14 @@ class FriendsView(APIView):
             "friends": friends_data
         }, status=status.HTTP_200_OK)
     
+# Largest profile picture accepted by ProfileImageUploadView
+MAX_PROFILE_IMAGE_BYTES = 5 * 1024 * 1024
+
 class ProfileImageUploadView(APIView):
-    permission_classes = [AllowAny]  # Allow access without authentication
+    permission_classes = [AllowAny]  # Signup uploads the picture before the account exists
+    # Limit uploads per client so the endpoint can't be used as free image hosting
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'image_upload'
 
     def post(self, request, username):
         try:
@@ -650,6 +624,12 @@ class ProfileImageUploadView(APIView):
             file = request.FILES.get('profile_image')
             if not file:
                 return Response({"error": "ProfileImageUploadView - POST - No image file was provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+            if not (file.content_type or '').startswith('image/'):
+                return Response({"error": "Profile picture must be an image file."}, status=status.HTTP_400_BAD_REQUEST)
+
+            if file.size > MAX_PROFILE_IMAGE_BYTES:
+                return Response({"error": "Profile picture must be 5 MB or smaller."}, status=status.HTTP_400_BAD_REQUEST)
 
             imgur_url, error = upload_to_imgur(file)
             if error:

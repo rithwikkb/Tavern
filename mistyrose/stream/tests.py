@@ -106,6 +106,9 @@ class GetFollowRequestsTest(TestCase):
             status='PENDING'
         )
 
+        # the logged-in user owns the inbox being read
+        self.object.user = self.user
+        self.object.save()
        
         self.url = reverse('follow_requests', kwargs={'author_id': self.object.id})
 
