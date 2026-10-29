@@ -1,0 +1,293 @@
+/*
+ * Phone layout. Loaded after every other stylesheet so these rules win.
+ * The sidebar width and page margin are set as inline styles in JS,
+ * which is why a few rules below need !important.
+ */
+@media (max-width: 768px) {
+  /* ---------- App shell ---------- */
+  .App {
+    margin-left: 0 !important;
+    padding: 12px 12px 88px 12px; /* leave room for the bottom nav bar */
+    flex-direction: column;
+    box-sizing: border-box;
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  input,
+  form input,
+  textarea {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* ---------- Navigation: sidebar becomes a bottom tab bar ---------- */
+  .navbar-menu {
+    width: 100% !important;
+    height: 64px;
+    top: auto;
+    bottom: 0;
+    flex-direction: row;
+    align-items: center;
+    border-top-right-radius: 0;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .navbar-header,
+  .navbar-app-logo {
+    display: none;
+  }
+
+  .navbar-list {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+  }
+
+  .navbar-list-item {
+    margin: 0;
+    padding: 6px 14px;
+    border-radius: 14px;
+  }
+
+  .navbar-list-item.current {
+    border-width: 2px;
+  }
+
+  .navbar-list-text {
+    display: none;
+  }
+
+  .navbar-icon {
+    font-size: 30px;
+  }
+
+  .navbar-footer {
+    position: static;
+    width: auto;
+    height: 100%;
+    padding: 0 16px;
+    background-color: transparent;
+  }
+
+  /* ---------- Login / signup: drop the illustration, full-width form ---------- */
+  .login-image,
+  .signup-image {
+    display: none;
+  }
+
+  .login-background-container,
+  .signup-background-container {
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  .login-container,
+  .signup-container {
+    max-width: 100%;
+    width: 100%;
+    height: auto;
+    min-height: calc(100vh - 24px);
+    border-radius: 30px;
+    padding: 24px 16px;
+    box-sizing: border-box;
+  }
+
+  .form-container,
+  .form-group {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .form-group {
+    margin: 8px 0;
+  }
+
+  .form-signup {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .signup-inputLable {
+    width: 100%;
+  }
+
+  .login-button {
+    width: 100%;
+  }
+
+  /* ---------- Home feed ---------- */
+  .home-page-container {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .home-container {
+    padding-right: 0;
+    width: 100%;
+  }
+
+  .home-container h1 {
+    margin: 4px 0 12px 0;
+  }
+
+  /* follow requests sit above the feed instead of floating on the right */
+  .follow-request-container {
+    position: static;
+    min-width: 0;
+    width: 100%;
+    margin: 0 0 12px 0;
+    padding: 0;
+    box-sizing: border-box;
+    order: -1;
+  }
+
+  .home-filter-options {
+    margin: 10px 0 0 4px;
+    gap: 24px;
+  }
+
+  .posts-container ul {
+    padding-left: 0;
+  }
+
+  .input-wrapper,
+  .input-wrapper:hover > .search-input {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* ---------- Post cards ---------- */
+  .post-box {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 14px;
+    border-radius: 24px;
+  }
+
+  .post-footer {
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .post-content {
+    overflow-wrap: anywhere;
+  }
+
+  /* ---------- Create / edit post ---------- */
+  .posts-page {
+    width: 100%;
+    height: auto;
+  }
+
+  .top-container {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%;
+  }
+
+  #title-input,
+  #plain-textarea {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .visibility-options {
+    gap: 20px;
+    margin-top: 20px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  #plain-textarea {
+    min-height: 220px;
+  }
+
+  .markdown-editor {
+    width: 100%;
+  }
+
+  #markdown-textarea,
+  .markdown-preview {
+    width: 100%;
+    min-height: 160px;
+  }
+
+  .postPage-buttons {
+    width: 100%;
+  }
+
+  .post-button,
+  .post-button:hover,
+  .delete-button {
+    width: 100%;
+    max-width: 320px;
+  }
+
+  /* ---------- Profile ---------- */
+  .profile-header {
+    flex-direction: column;
+  }
+
+  .Img-details {
+    margin: 24px 0 0 0;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .profile-image {
+    width: 140px;
+    height: 140px;
+  }
+
+  .profile-details {
+    margin: 16px 0 24px 0;
+    gap: 12px;
+  }
+
+  .profile-stats {
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .links-details {
+    margin: 0 12px;
+    overflow-wrap: anywhere;
+  }
+
+  .posts-section {
+    margin-left: 0;
+    width: 100%;
+    padding: 0 12px;
+    box-sizing: border-box;
+  }
+
+  .profile-filter-options {
+    margin-left: 12px;
+  }
+
+  /* ---------- Modals ---------- */
+  .modalBox {
+    width: 92vw;
+    max-width: 92vw;
+    box-sizing: border-box;
+  }
+
+  .comment-textbox {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .followers-modal,
+  .friends-modal,
+  .following-modal {
+    width: 88vw;
+  }
+}

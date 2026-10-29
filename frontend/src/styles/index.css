@@ -2,8 +2,10 @@ html,
 body {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  height: 100%;
+  /* lay out from the top: centering pushes pages taller than the screen
+     above the top edge, where they can't be scrolled to */
+  justify-content: flex-start;
+  min-height: 100%;
   margin: 0;
   font-family: 'Roboto', sans-serif;
   -webkit-font-smoothing: antialiased;

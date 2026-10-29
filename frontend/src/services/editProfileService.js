@@ -1,39 +1,21 @@
-import Cookies from 'js-cookie';  // To access cookies
+import api from './axios';
 
-const currentHost = window.location.origin; // Get host for post URL
-const API_URL = `${currentHost}/api/authors/`; // Adjust the API base URL
+const currentHost = window.location.origin; // Get host for the image upload URL
 
 // Function to fetch the author profile
 export const getAuthorProfile = async (authorId) => {
-    const accessToken = Cookies.get('access_token');
-
-    const response = await fetch(`${API_URL}${authorId}/profile/`, {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-        },
-        credentials: 'include',  // Include credentials (cookies)
-    });
-    if (!response.ok) throw new Error('Failed to fetch profile data');
-    return response.json();
+    const response = await api.get(`authors/${authorId}/profile/`);
+    return response.data;
 };
 
 // Function to update the author profile
 export const updateAuthorProfile = async (authorId, profileData) => {
-    const accessToken = Cookies.get('access_token');
-
-    const response = await fetch(`${API_URL}${authorId}/profile/edit/`, {
-        method: 'PUT',
-        headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(profileData),
-        credentials: 'include',
-    });
-    if (!response.ok) throw new Error('Failed to update profile');
-    return response.json();
+    try {
+        const response = await api.put(`authors/${authorId}/profile/edit/`, profileData);
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.error || 'Failed to update profile');
+    }
 };
 
 export const uploadProfileImage = async (authorId, formData) => {

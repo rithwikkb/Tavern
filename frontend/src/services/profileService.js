@@ -1,31 +1,19 @@
-import Cookies from 'js-cookie'; // To access cookies
+import api from './axios';
 
-
+// Many components (every post card, the feed, the profile page) ask for the same
+// author at once; share one request per author while it is in flight.
+const inFlightProfiles = new Map();
 
 export const getAuthorProfile = async (authorId) => {
+    if (!inFlightProfiles.has(authorId)) {
+        const request = api
+            .get(`authors/${authorId}/profile/`)
+            .then((response) => response.data)
+            .finally(() => inFlightProfiles.delete(authorId));
+        inFlightProfiles.set(authorId, request);
+    }
     try {
-        // Get the access token from cookies
-        const accessToken = Cookies.get('access_token');
-
-        if (!accessToken) {
-            throw new Error('Access token is missing. Please log in.');
-        }
-
-        // Make the request with the Authorization header
-        const response = await fetch(`${window.location.origin}/api/authors/${authorId}/profile/`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${accessToken}`, // Include the access token
-            },
-            credentials: 'include', // Ensures cookies are sent with the request
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to fetch profile');
-        }
-
-        return await response.json();
+        return await inFlightProfiles.get(authorId);
     } catch (error) {
         console.error('Error fetching profile:', error);
         throw error;
