@@ -21,7 +21,8 @@ def with_post_relations(queryset):
 #region Comment Serializers        
 class CommentSerializer(serializers.ModelSerializer):
     type = serializers.CharField(default='comment', read_only=True)
-    author = AuthorSerializer(source='author_id')
+    # set by the view from the logged-in user, never taken from the request body
+    author = AuthorSerializer(source='author_id', read_only=True)
     id = serializers.SerializerMethodField()
     likes = serializers.SerializerMethodField()
     post = serializers.SerializerMethodField()
@@ -76,7 +77,8 @@ class CommentSerializer(serializers.ModelSerializer):
 class LikeSerializer(serializers.ModelSerializer):
     type = serializers.CharField(default='like', read_only=True)
     #author = serializers.SerializerMethodField()
-    author = AuthorSerializer(source='author_id')  
+    # set by the view from the logged-in user, never taken from the request body
+    author = AuthorSerializer(source='author_id', read_only=True)
     object = serializers.SerializerMethodField() # calls get_object with current Like instance to set the object url
     id = serializers.SerializerMethodField()
     class Meta:

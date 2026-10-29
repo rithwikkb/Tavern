@@ -2,7 +2,7 @@
 // https://codepen.io/bnewton/pen/KMbLZx
 import React, { useEffect, useState, useRef } from 'react';
 import Cookies from 'js-cookie';
-import { createLike, getLikes } from '../services/LikesService';
+import { createLike, deleteLike, getLikes } from '../services/LikesService';
 import { Favorite } from '@mui/icons-material';
 import { getCurrentAuthor } from '../services/AuthorsService';
 import '../styles/components/LikeButton.css';
@@ -18,6 +18,7 @@ const LikeButton = ({ post, posterId }) => {
   const [isLiked, setIsLiked] = useState(post.liked_by_me ?? false);
   const authorId = Cookies.get('author_id');
   const buttonRef = useRef(null); 
+  const likeRequestPending = useRef(false);
 
   // Initialize animation
   useEffect(() => {
@@ -100,30 +101,48 @@ const LikeButton = ({ post, posterId }) => {
   }, [authorId, post.id, post.likes_count]);
 
   const handleLike = async () => {
-    if (!isLiked) {
+    // ignore extra clicks while a like/unlike request is still in flight
+    if (likeRequestPending.current) {
+      return;
+    }
+    likeRequestPending.current = true;
+    const post_id = post.id.replace(/\/$/, '');
+
+    try {
+      if (isLiked) {
+        // unlike
+        const result = await deleteLike(authorId, `${post_id}/`);
+        if (result === 'removed') {
+          setLikesCount((count) => Math.max(0, count - 1));
+        }
+        if (result) {
+          setIsLiked(false);
+        }
+        return;
+      }
+
       //create like object
-      const post_id = post.id.replace(/\/$/, '');
       const likeData = {
         type: 'like',
         author: await getCurrentAuthor(authorId),
         object: `${post_id}/`,
       };
+      const response = await createLike(authorId, likeData);
 
-      try {
-        const response = await createLike(authorId, likeData);
-
-        // only updating likes if request is successful
-        if (response.status === 201) {
-          setLikesCount(likesCount + 1);
-          setIsLiked(true);
-        } else if (response.status === 200) {
-          console.log(response.data);
-        } else {
-          console.error('Creating like failed with ', response.status);
-        }
-      } catch (error) {
-        console.error('Error handling like', error);
+      // only updating likes if request is successful
+      if (response?.status === 201) {
+        setLikesCount((count) => count + 1);
+        setIsLiked(true);
+      } else if (response?.status === 200) {
+        // the server already had this like
+        setIsLiked(true);
+      } else {
+        console.error('Creating like failed with ', response?.status);
       }
+    } catch (error) {
+      console.error('Error handling like', error);
+    } finally {
+      likeRequestPending.current = false;
     }
   };
 

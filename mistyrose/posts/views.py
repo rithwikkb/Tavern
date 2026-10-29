@@ -907,7 +907,7 @@ class CommentByFQIDView(APIView):
 #region Like views   
 class LikedView(APIView):
     """
-    get or like a post
+    get, like or unlike a post
     """
     def post(self, request, author_serial):
         try:
@@ -978,6 +978,33 @@ class LikedView(APIView):
             return Response(like_serializer.errors, status=status.HTTP_400_BAD_REQUEST) 
         
         return Response(like_serializer.data, status=status.HTTP_201_CREATED)   
+
+    def delete(self, request, author_serial):
+        """
+        Unlike a post or comment: removes this author's like on the object given as
+        `object` (its URL) in the request body or query string.
+        """
+        author = get_object_or_404(Author, id=parse_uuid(author_serial))
+        if not is_request_author(request, author.id):
+            return Response({"error": "You can only remove your own likes."}, status=status.HTTP_403_FORBIDDEN)
+
+        object_url = request.data.get("object") or request.query_params.get("object")
+        if not object_url:
+            return Response({"Error": "object URL is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if "/posts/" in object_url:
+            object_id = parse_uuid(object_url.rstrip('/').split("/posts/")[-1])
+            content_type = ContentType.objects.get_for_model(Post)
+        elif "/commented/" in object_url:
+            object_id = parse_uuid(object_url.rstrip('/').split("/commented/")[-1])
+            content_type = ContentType.objects.get_for_model(Comment)
+        else:
+            return Response({"detail": "Invalid object URL format."}, status=status.HTTP_400_BAD_REQUEST)
+
+        deleted, _ = Like.objects.filter(author_id=author, content_type=content_type, object_id=object_id).delete()
+        if not deleted:
+            return Response({"detail": "You haven't liked this."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
         
     def get(self, request, author_serial):
         """

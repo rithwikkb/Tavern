@@ -1484,3 +1484,37 @@ class FeedEfficiencyAndLikesTest(APITestCase):
         response = self.client.get(f"/api/authors/{stranger.id}/commented/")
         self.assertEqual([c["comment"] for c in response.data["src"]], ["public reply"])
 
+
+class UnlikeTest(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="liker", password="pass")
+        self.author = Author.objects.create(display_name="Liker", host="http://testserver", user=self.user)
+        other_user = User.objects.create_user(username="poster", password="pass")
+        self.other = Author.objects.create(display_name="Poster", host="http://testserver", user=other_user)
+        self.post = Post.objects.create(author_id=self.other, title="t", content="c", content_type="text/plain", visibility="PUBLIC")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {RefreshToken.for_user(self.user).access_token}")
+        self.liked_url = f"/api/authors/{self.author.id}/liked/"
+
+    def test_like_then_unlike(self):
+        self.client.post(self.liked_url, {"type": "like", "object": self.post.url}, format="json")
+        self.assertEqual(Like.objects.count(), 1)
+
+        response = self.client.delete(self.liked_url, {"object": self.post.url}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(Like.objects.count(), 0)
+
+        # liking again works after unliking
+        response = self.client.post(self.liked_url, {"type": "like", "object": self.post.url}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_unlike_when_not_liked(self):
+        response = self.client.delete(self.liked_url, {"object": self.post.url}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_cannot_remove_someone_elses_like(self):
+        ct = ContentType.objects.get_for_model(Post)
+        Like.objects.create(author_id=self.other, object_id=self.post.id, content_type=ct, object_url=self.post.url)
+        response = self.client.delete(f"/api/authors/{self.other.id}/liked/", {"object": self.post.url}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(Like.objects.count(), 1)
+

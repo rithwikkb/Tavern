@@ -67,6 +67,37 @@
   width: 100%;
   white-space: pre-wrap;
 }
+/* rendered Markdown is already HTML, so don't turn its source line breaks into blank lines */
+.post-content .post-markdown {
+  white-space: normal;
+}
+.post-content .post-markdown ul,
+.post-content .post-markdown ol {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+.post-content .post-markdown li {
+  margin: 4px 0;
+}
+.post-content .post-markdown p {
+  margin: 0 0 8px 0;
+}
+.post-content .post-markdown table {
+  border-collapse: collapse;
+  margin: 8px 0;
+}
+.post-content .post-markdown th,
+.post-content .post-markdown td {
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  padding: 4px 10px;
+}
+.post-content .post-markdown pre {
+  background: rgba(0, 0, 0, 0.06);
+  padding: 8px 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
 .post-content h2 {
   font-size: large;
 }

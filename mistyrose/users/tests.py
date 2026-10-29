@@ -559,3 +559,62 @@ class ProfileLinkValidationTest(TestCase):
         }, format="json")
         self.assertEqual(response.status_code, 400)
 
+
+class SeedDemoTest(TestCase):
+    """seed_demo builds the demo community, can be re-run safely, and the demo account is protected."""
+    def seed(self):
+        from django.core.management import call_command
+        from io import StringIO
+        call_command("seed_demo", "--site-url", "http://testserver", stdout=StringIO())
+
+    def test_seed_is_idempotent(self):
+        from posts.models import Post, Comment, Like
+        self.seed()
+        counts = (User.objects.count(), Author.objects.count(), Post.objects.count(),
+                  Comment.objects.count(), Like.objects.count(), Follows.objects.count())
+        self.seed()
+        self.assertEqual(counts, (User.objects.count(), Author.objects.count(), Post.objects.count(),
+                                  Comment.objects.count(), Like.objects.count(), Follows.objects.count()))
+        self.assertGreater(counts[2], 5)
+
+    def test_demo_login_sees_populated_feed(self):
+        from django.conf import settings
+        self.seed()
+        client = APIClient()
+        login = client.post("/api/login/", {"username": settings.DEMO_USERNAME, "password": settings.DEMO_PASSWORD}, format="json")
+        self.assertEqual(login.status_code, 200)
+        client.credentials(HTTP_AUTHORIZATION="Bearer " + login.data["access_token"])
+        posts = client.get("/api/posts/").data["posts"]
+        visibilities = {p["visibility"] for p in posts}
+        # friends-only (from Avery) and unlisted (from Jordan, whom demo follows) are visible to demo
+        self.assertTrue({"PUBLIC", "FRIENDS", "UNLISTED"} <= visibilities, visibilities)
+        requests = client.get(f"/api/authors/{login.data['author_id']}/inbox/follow_requests/")
+        self.assertEqual(len(requests.data), 1)
+
+    def test_sample_people_cannot_log_in(self):
+        self.seed()
+        self.assertFalse(User.objects.get(username="sample_avery").has_usable_password())
+
+    def test_demo_profile_cannot_be_edited(self):
+        from django.conf import settings
+        self.seed()
+        client = APIClient()
+        login = client.post("/api/login/", {"username": settings.DEMO_USERNAME, "password": settings.DEMO_PASSWORD}, format="json")
+        client.credentials(HTTP_AUTHORIZATION="Bearer " + login.data["access_token"])
+        response = client.put(f"/api/authors/{login.data['author_id']}/profile/edit/", {"display_name": "Renamed"}, format="json")
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(Author.objects.get(id=login.data["author_id"]).display_name, "Demo Visitor")
+
+    def test_reserved_usernames_cannot_sign_up(self):
+        for username in ["demo", "sample_avery", "Sample_Someone"]:
+            response = self.client.post("/api/signup/", {
+                "username": username, "email": "r@example.com", "password": "Tavern-strong-pass-42", "displayName": "R",
+            }, content_type="application/json")
+            self.assertEqual(response.status_code, 409, username)
+
+    def test_seed_refuses_to_take_over_real_account(self):
+        from django.core.management.base import CommandError
+        User.objects.create_user(username="sample_avery", password="Someones-real-pass-1")
+        with self.assertRaises(CommandError):
+            self.seed()
+

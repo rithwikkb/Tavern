@@ -14,6 +14,13 @@ Originally built as a team project for CMPUT 404 at the University of Alberta.
 - Django admin panel for managing users and content
 - Interactive API docs at `/swagger/`
 
+## Try it
+
+Use **Try the demo account** on the login page (username `demo`, password `TavernDemo2026`).
+The demo account is friends with a few sample people, has a follow request waiting, and its feed
+includes public, friends-only and unlisted posts with comments and likes. Its profile can't be
+edited since everyone shares it; sign up to get your own account.
+
 ## Tech stack
 
 - **Backend:** Django 5.2, Django REST Framework, Simple JWT, WhiteNoise, Gunicorn
@@ -36,6 +43,7 @@ cd mistyrose
 export DJANGO_DEBUG=True
 python manage.py migrate
 python manage.py createsuperuser
+python manage.py seed_demo --site-url http://127.0.0.1:8000   # optional demo account + sample posts
 python manage.py runserver
 ```
 

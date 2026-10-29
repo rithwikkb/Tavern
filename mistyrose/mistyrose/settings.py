@@ -254,6 +254,13 @@ if not DEBUG:
 # New signups can log in right away unless this is enabled (then an admin must activate them)
 SIGNUP_REQUIRES_APPROVAL = os.environ.get("SIGNUP_REQUIRES_APPROVAL", "False").lower() in ("1", "true", "yes")
 
+# Shared demo account created by `manage.py seed_demo`; the login page has a button that signs in with it.
+# The password is public on purpose (it's shown to visitors), so the account's profile can't be edited.
+DEMO_USERNAME = "demo"
+DEMO_PASSWORD = "TavernDemo2026"
+# Usernames reserved for seeded sample people (see seed_demo)
+SAMPLE_USERNAME_PREFIX = "sample_"
+
 # Optional GitHub token; raises the GitHub API limit from 60 to 5,000 requests/hour
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 

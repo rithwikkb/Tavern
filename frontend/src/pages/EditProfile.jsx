@@ -92,7 +92,7 @@ const EditProfile = () => {
             navigate(`/profile/${authorId}`);
         } catch (error) {
             console.error('Error updating profile:', error);
-            setErrors({ general: 'Failed to update profile' });
+            setErrors({ general: error.message || 'Failed to update profile' });
         }
     };
 

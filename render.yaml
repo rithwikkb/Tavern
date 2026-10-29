@@ -19,6 +19,9 @@ services:
         value: "False"
       - key: DATABASE_URL
         sync: false
+      # Public URL of the site, used by seed_demo (Render's own URL is used if this is empty)
+      - key: SITE_URL
+        sync: false
       - key: DJANGO_SUPERUSER_USERNAME
         sync: false
       - key: DJANGO_SUPERUSER_EMAIL

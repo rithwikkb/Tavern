@@ -176,8 +176,9 @@ class SignUpView(APIView):
                 except ValidationError:
                     return Response({"message": f"{field_name} must be a valid http(s) URL."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if the username is already taken
-        if User.objects.filter(username=username).exists():
+        # Check if the username is already taken (the demo and sample accounts' names are reserved)
+        reserved = username.lower() == settings.DEMO_USERNAME or username.lower().startswith(settings.SAMPLE_USERNAME_PREFIX)
+        if reserved or User.objects.filter(username=username).exists():
             return Response(
                 {"message": "Username already exists."},
                 status=status.HTTP_409_CONFLICT
@@ -380,6 +381,10 @@ class AuthorEditProfileView(APIView):
         
         if not is_request_author(request, author.id):
             return Response({"error": "You can only edit your own profile."}, status=status.HTTP_403_FORBIDDEN)
+
+        # everyone shares the demo login, so keep its name and picture fixed
+        if request.user.username == settings.DEMO_USERNAME:
+            return Response({"error": "The demo account's profile can't be changed. Sign up to get your own!"}, status=status.HTTP_403_FORBIDDEN)
 
         # Deserialize and validate the incoming data
         serializer = AuthorEditProfileSerializer(author, data=request.data)

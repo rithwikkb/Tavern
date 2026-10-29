@@ -179,7 +179,7 @@ const PostBox = ({ post, poster, isUserEditable }) => {
             />
           ))}
         {post.contentType === 'text/markdown' && (
-          <div dangerouslySetInnerHTML={getMarkdownText(post.content)} />
+          <div className="post-markdown" dangerouslySetInnerHTML={getMarkdownText(post.content)} />
         )}
       </div>
 

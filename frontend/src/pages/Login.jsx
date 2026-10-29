@@ -6,6 +6,10 @@ import { useNavigate } from 'react-router-dom';
 import LogInImg from '../assets/LogInImg.png';
 import appLogo from  '../assets/Logo.png'
 
+// Public demo credentials; must match DEMO_USERNAME / DEMO_PASSWORD in the Django settings
+const DEMO_USERNAME = 'demo';
+const DEMO_PASSWORD = 'TavernDemo2026';
+
 const Login = () => {
   //#region Properties
   const [loading, setLoading] = useState(false);
@@ -18,13 +22,7 @@ const Login = () => {
   //#endregion
 
   //#region Event Handlers
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const loginData = {
-      username: username,
-      password: password,
-    };
-
+  const logIn = async (loginData) => {
     try {
       setLoading(true);
       setError('');
@@ -46,6 +44,16 @@ const Login = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await logIn({ username, password });
+  };
+
+  // one click into the shared demo account (created by `manage.py seed_demo`)
+  const handleDemoLogin = async () => {
+    await logIn({ username: DEMO_USERNAME, password: DEMO_PASSWORD });
   };
   //#endregion
 
@@ -81,6 +89,16 @@ const Login = () => {
           <button className="login-button" type="submit" disabled={loading}>
             {loading ? 'Logging in...' : 'Log In'}
           </button>
+          {/* inside the form so it lines up with the Log In button; type="button" keeps it from submitting */}
+          <div className="demo-login">
+            <span className="demo-divider">or</span>
+            <button className="demo-login-button" type="button" onClick={handleDemoLogin} disabled={loading}>
+              Try the demo account
+            </button>
+            <p className="demo-credentials">
+              Username <strong>{DEMO_USERNAME}</strong> · Password <strong>{DEMO_PASSWORD}</strong>
+            </p>
+          </div>
         </form>
         <div className="signup-link">
           No account? <span onClick={() => navigate('/signup')}>Sign Up</span>
