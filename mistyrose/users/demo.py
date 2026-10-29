@@ -263,7 +263,9 @@ def reset_demo_account():
     """
     Undo what visitors did as the demo account: remove the demo's own posts, comments,
     likes and follows that aren't part of the seed, and put the seeded ones back
-    (e.g. re-like posts it unliked, make Sam's follow request pending again).
+    (e.g. re-like posts it unliked, make Sam's follow request pending again). That
+    includes the sample people's comments and likes on the demo's posts, which a
+    visitor can remove by deleting those comments or the post itself.
     Content real users created stays untouched.
     """
     demo = settings.DEMO_USERNAME
@@ -294,20 +296,24 @@ def reset_demo_account():
                 _upsert_follow(authors, follower, followed, follow_status)
 
         posts = {}
+        demo_post_keys = set()
         for key, author, *fields in POSTS:
             existing = Post.objects.filter(id=seed_id("post", key)).first()
             if author == demo:
                 posts[key] = _upsert_post(authors, key, author, *fields, now=now)
+                demo_post_keys.add(key)
             elif existing is not None:
                 posts[key] = existing
 
         for index, (post_key, commenter, text, hours_ago) in enumerate(COMMENTS):
-            if commenter == demo and post_key in posts:
+            # the demo's own comments, plus everyone's seeded comments on the demo's posts
+            if post_key in posts and commenter in authors and (commenter == demo or post_key in demo_post_keys):
                 _upsert_comment(authors, index, posts[post_key], commenter, text, hours_ago, now)
 
         for post_key, likers in LIKES.items():
-            if demo in likers and post_key in posts:
-                _upsert_like(authors, post_key, posts[post_key], demo)
+            for liker in likers:
+                if post_key in posts and liker in authors and (liker == demo or post_key in demo_post_keys):
+                    _upsert_like(authors, post_key, posts[post_key], liker)
 
 
 def maybe_reset_demo_account(user):

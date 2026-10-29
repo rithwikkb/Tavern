@@ -685,6 +685,27 @@ class DemoResetTest(TestCase):
         self.login_demo()
         self.assert_clean(sunset, sam)
 
+    def test_reset_restores_others_comments_on_demo_posts(self):
+        from posts.models import Post, Comment, Like
+        welcome = Post.objects.get(title="Welcome to Tavern 👋")
+        before = (welcome.comments.count(), Like.objects.filter(object_id=welcome.id).count())
+        self.assertGreater(before[0], 0)
+
+        client = self.login_demo()
+        # a visitor deletes the sample people's comments on the demo's post, then the post
+        # (deleting a post in the app only marks it DELETED)
+        for comment in welcome.comments.exclude(author_id=self.demo_author):
+            response = client.delete(f"/api/authors/{comment.author_id_id}/commented/{comment.id}/")
+            self.assertEqual(response.status_code, 204)
+        Post.objects.filter(id=welcome.id).update(visibility="DELETED")
+        self.assertEqual(Comment.objects.filter(post_id=welcome.id).count(), 0)
+
+        User.objects.filter(username=self.settings_.DEMO_USERNAME).update(last_login=None)
+        self.login_demo()
+        welcome = Post.objects.get(id=welcome.id)
+        self.assertEqual(welcome.visibility, "PUBLIC")
+        self.assertEqual((welcome.comments.count(), Like.objects.filter(object_id=welcome.id).count()), before)
+
     def test_no_reset_within_interval(self):
         from posts.models import Post
         client = self.login_demo()  # resets and starts the interval
