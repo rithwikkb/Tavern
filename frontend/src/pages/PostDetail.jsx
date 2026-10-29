@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom';
 import api from '../services/axios';
 import { getAuthorProfile } from '../services/profileService';
 import PostBox from '../components/PostBox';
-import Cookies from 'js-cookie';
 
 const PostDetail = () => {
   const { postId } = useParams(); // Get postId from URL parameters
@@ -11,49 +10,24 @@ const PostDetail = () => {
   const [author, setAuthor] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [authorizedAuthors, setAuthorizedAuthors] = useState([]);
-
-  // Helper function to extract UUID from the post URL
-  const extractUUIDFromId = (url) => {
-    const parts = url.split('/');
-    return parts[parts.length - 1] || parts[parts.length - 2];
-  };
 
   useEffect(() => {
     const fetchPostDetail = async () => {
       try {
-        const response = await api.get('posts/'); // Fetch all posts
-        const data = response.data;
-        console.log('postId:', postId);
-        console.log('data.posts:', data.posts);    
-        // Find the specific post using postId
-        const postData = data.posts.find(post => extractUUIDFromId(post.id) === postId);
-        console.log(postData);
-        if (!postData) {
-          throw new Error('Post not found');
-        }
-
-        // Set authorized authors
-        const postAuthorization = data.authorized_authors_per_post.find(auth => auth.post_id === postData.id);
-        setAuthorizedAuthors(postAuthorization?.authorized_authors || []);
-
-        const currentUserId = Cookies.get('author_id');
-
-        // Check visibility and authorization
-        if (
-          postData.visibility === 'PUBLIC' || 
-          postData.visibility === 'UNLISTED' || 
-          (postAuthorization && postAuthorization.authorized_authors.includes(currentUserId))
-        ) {
-          setPost(postData);
-          const profile = await getAuthorProfile(postData.author.id.split('/')[5]);
-          setAuthor(profile);
-        } else {
-          setError('You are not authorized to view this post.');
-        }
+        // the server only returns posts this user is allowed to see,
+        // so unlisted posts work for anyone with the link
+        const response = await api.get(`posts/${postId}/`);
+        const postData = response.data;
+        setPost(postData);
+        const profile = await getAuthorProfile(postData.author.id.replace(/\/$/, '').split('/').pop());
+        setAuthor(profile);
       } catch (err) {
         console.error('Error fetching post detail:', err.message);
-        setError(err.message);
+        setError(
+          err.response?.status === 404
+            ? "This post doesn't exist or isn't shared with you."
+            : 'Something went wrong loading this post.'
+        );
       } finally {
         setLoading(false);
       }
@@ -67,7 +41,7 @@ const PostDetail = () => {
   }
 
   if (error) {
-    return <p>Error: {error}</p>;
+    return <p>{error}</p>;
   }
 
   return (

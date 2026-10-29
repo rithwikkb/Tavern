@@ -5,7 +5,7 @@ import uuid
 from django.shortcuts import render
 import requests
 
-from users.utils import is_fqid, is_request_author, get_request_author, are_friends
+from users.utils import is_fqid, is_request_author, get_request_author, are_friends, parse_uuid
 from users.models import Author
 from rest_framework import status
 from rest_framework.views import APIView
@@ -218,13 +218,16 @@ class PostDetailsView(APIView):
 
 class PostDetailsByFqidView(APIView):
     """
-    Retrieve post by Fully Qualified ID (URL + ID).
+    Retrieve post by Fully Qualified ID (URL + ID), or by its SERIAL (used by shared post links).
     """
 
     def get(self, request, post_fqid):
-        try:
-            post = Post.objects.get(url=post_fqid)
-        except Post.DoesNotExist:
+        post_ref = urllib.parse.unquote(post_fqid)
+        if is_fqid(post_ref):
+            post = Post.objects.filter(url=post_ref).first() or Post.objects.filter(url=post_ref.rstrip('/') + '/').first()
+        else:
+            post = Post.objects.filter(id=parse_uuid(post_ref.strip('/'))).first()
+        if post is None:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
         if not can_view_post(request, post):
@@ -646,6 +649,8 @@ class CommentedView(APIView):
 
         post_id = post_url.rstrip('/').split("/posts/")[-1]
         post = get_object_or_404(Post, id=post_id)
+        if not can_view_post(request, post):
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
         #creating the comment object locally
         comment_serializer = CommentSerializer(data=request.data)
@@ -769,6 +774,8 @@ class CommentsView(APIView):
             return Response({"error": "CommentsView - GET - Invalid FQID or SERIAL."}, status=status.HTTP_400_BAD_REQUEST)
         
         post = get_object_or_404(Post, id=post_serial)
+        if not can_view_post(request, post):
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
         comments = post.comments.all().order_by('-published')
 
@@ -808,6 +815,8 @@ class CommentsByFQIDView(APIView):
             return Response({"error": "Invalid FQID format"}, status=status.HTTP_400_BAD_REQUEST)
         
         post = get_object_or_404(Post, id=post_serial) 
+        if not can_view_post(request, post):
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
         comments = post.comments.all().order_by('-published')
 
@@ -914,6 +923,8 @@ class LikedView(APIView):
             # object is a post
             object_id = object_url.rstrip('/').split("/posts/")[-1]
             liked_object = get_object_or_404(Post, id=object_id)
+            if not can_view_post(request, liked_object):
+                return Response(status=status.HTTP_404_NOT_FOUND)
             object_content_type = ContentType.objects.get_for_model(Post)
             object_url_remote = f"{liked_object.author_id.host.rstrip('/')}/authors/{liked_object.author_id.id}/posts/{object_id}"
         elif "/commented/" in object_url:
@@ -1034,6 +1045,8 @@ class LikesView(APIView):
             return Response({"error": "LikesView - GET - Invalid FQID or SERIAL."}, status=status.HTTP_400_BAD_REQUEST)
         
         post = get_object_or_404(Post, id=post_id)
+        if not can_view_post(request, post):
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
         likes = post.likes.all().order_by('-published')
 
@@ -1087,6 +1100,8 @@ class LikedCommentsView(APIView):
             return Response({"error": "LikedCommentsView - GET - Invalid FQID or SERIAL."}, status=status.HTTP_400_BAD_REQUEST)
         
         post = get_object_or_404(Post, id=post_id)
+        if not can_view_post(request, post):
+            return Response(status=status.HTTP_404_NOT_FOUND)
         comment = get_object_or_404(Comment, id=comment_id, post_id=post)
 
         likes = comment.likes.all().order_by('-published')
@@ -1132,6 +1147,8 @@ class LikesViewByFQIDView(APIView):
             return Response({"error": "Invalid FQID format"}, status=status.HTTP_400_BAD_REQUEST)
         
         post = get_object_or_404(Post, id=post_id)
+        if not can_view_post(request, post):
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
         likes = post.likes.all().order_by('-published')
 

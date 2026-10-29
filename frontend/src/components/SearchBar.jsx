@@ -1,6 +1,6 @@
 // https://github.com/CodeCompleteYT/react-search-bar/blob/main/src/components/SearchBar.jsx search bar logic 2024-10-18, author: CodeCompleteYT from youtube tutorial https://www.youtube.com/watch?v=sWVgMcz8Q44
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Search } from '@mui/icons-material';
 import { getRemoteAuthors } from '../services/AuthorsService';
 
@@ -26,10 +26,8 @@ const SearchBar = ({ setResults }) => {
 
   };
 
-  const handleChange = (value) => {
-    setInput(value);
-
-    const filteredResults = authors.filter((author) => {
+  const filterAuthors = (authorList, value) =>
+    authorList.filter((author) => {
       return (
         value && //check that they've entered value into search bar --> if value is empy --> wont render anything
         author && //check that user exists
@@ -38,8 +36,16 @@ const SearchBar = ({ setResults }) => {
       );
     });
 
-    setResults(filteredResults);
+  const handleChange = (value) => {
+    setInput(value);
+    setResults(filterAuthors(authors, value));
   };
+
+  // the author list loads on focus; re-filter once it arrives so early keystrokes aren't lost
+  useEffect(() => {
+    setResults(filterAuthors(authors, input));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authors]);
 
   const handleFocus = () => {
     fetchData();  // Fetch the authors once when focused

@@ -22,6 +22,9 @@ import uuid
 from posts.models import Post  
 from django.middleware.csrf import get_token  
 from django.contrib.auth import authenticate  
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.http import HttpRequest
 from .pagination import AuthorsPagination  
 from posts.serializers import PostSerializer  
@@ -46,7 +49,7 @@ def create_author(author_data, request, user):
         id=author_id,
         host=host,
         display_name=author_data['displayName'],  # Set display name
-        profile_image=author_data.get('profileImage', DEFAULT_PROFILE_PIC),  # Set the profile image or default one
+        profile_image=author_data.get('profileImage') or DEFAULT_PROFILE_PIC,  # Set the profile image or default one
         page=page_url,
         github=author_data.get('github', ''),  # Optional GitHub URL
         user=user  # Associate the Author with the created user
@@ -130,7 +133,7 @@ class SignUpView(APIView):
         password = request.data.get("password")
         display_name = request.data.get("displayName")
         github = request.data.get("github", "")
-        profile_image = request.data.get("profileImage", DEFAULT_PROFILE_PIC)
+        profile_image = request.data.get("profileImage") or DEFAULT_PROFILE_PIC
 
         # Validate that required fields are present
         if not all([username, email, password, display_name]):
@@ -139,6 +142,28 @@ class SignUpView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Check field formats and password strength before creating anything
+        try:
+            User.username_validator(username)
+        except ValidationError:
+            return Response(
+                {"message": "Username can only contain letters, digits and @/./+/-/_ characters."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if len(username) > 150 or len(display_name) > 100:
+            return Response(
+                {"message": "Username must be at most 150 characters and name at most 100."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            validate_email(email)
+        except ValidationError:
+            return Response({"message": "Enter a valid email address."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            validate_password(password, user=User(username=username, email=email))
+        except ValidationError as e:
+            return Response({"message": " ".join(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
+
         # Check if the username is already taken
         if User.objects.filter(username=username).exists():
             return Response(

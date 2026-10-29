@@ -124,6 +124,8 @@ const Profile = () => {
 
   const isCurrentUser = currentUserId === authorId;
 
+  // new accounts default to the bare "https://github.com/" link
+  const hasGithub = !!profileData.github && !/^https?:\/\/github\.com\/?$/.test(profileData.github);
   const publicPosts = profileData.public_posts || [];
   const friendsPosts = profileData.friends_posts || [];
   const unlistedPosts = profileData.unlisted_posts || [];
@@ -191,13 +193,17 @@ const Profile = () => {
             <div className="links-details">
               <p>
                 GitHub Profile:{' '}
-                <a
-                  href={profileData.github ?? '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {profileData.github || 'N/A'}
-                </a>
+                {hasGithub ? (
+                  <a
+                    href={profileData.github}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {profileData.github}
+                  </a>
+                ) : (
+                  'Not linked'
+                )}
               </p>
             </div>
             <div className="links-details">

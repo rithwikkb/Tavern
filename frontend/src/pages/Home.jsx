@@ -53,26 +53,28 @@ const Home = () => {
         // Set authorized authors
         setAuthorizedAuthors(data.authorized_authors_per_post); // Set authorized authors data
 
+        // Look up each author once, not once per post
+        const authorIds = [
+          ...new Set(data.posts.map((post) => post.author.id.split('/')[5])),
+        ];
+
         // Fetch author profiles based on the retrieved posts
         const profiles = await Promise.all(
-          data.posts.map(async (post) => {
+          authorIds.map(async (authorId) => {
             try {
-              const profile = await getAuthorProfile(
-                post.author.id.split('/')[5]
-              );
+              const profile = await getAuthorProfile(authorId);
               return {
-                authorId: post.author.id.split('/')[5],
+                authorId,
                 displayName: profile.displayName,
                 profileImage: profile.profileImage,
               };
             } catch (profileError) {
               console.error(
-                `Error fetching profile for author ${post.author.id.split('/')[5]}:`,
+                `Error fetching profile for author ${authorId}:`,
                 profileError
               );
               return {
-                id: post.id, // ID url
-                authorId: post.author.id.split('/')[5],
+                authorId,
                 displayName: null,
                 profileImage: null,
               };
@@ -89,17 +91,17 @@ const Home = () => {
         );
         setAuthorProfiles(profileMap);
 
+        // you can't follow yourself, so only check other authors
         const currentUserId = Cookies.get('author_id');
-        const followingPromises = data.posts.map((post) =>
-          checkIfFollowing(post.author.id.split('/')[5], currentUserId)
+        const otherAuthorIds = authorIds.filter((authorId) => authorId !== currentUserId);
+        const followingResponses = await Promise.all(
+          otherAuthorIds.map((authorId) => checkIfFollowing(authorId, currentUserId))
         );
-
-        const followingResponses = await Promise.all(followingPromises);
         const followingStatusMap = {};
 
         followingResponses.forEach((response, index) => {
           if (response && response.data && response.data.status) {
-            followingStatusMap[data.posts[index].author.id.split('/')[5]] =
+            followingStatusMap[otherAuthorIds[index]] =
               response.data.status === 'Following';
           }
         });

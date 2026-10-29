@@ -235,6 +235,9 @@ const Post = () => {
   };
 
   const handleDeleteClick = async () => {
+    if (!window.confirm("Delete this post? This can't be undone.")) {
+      return;
+    }
     try {
       // Change post visibility to 'DELETED'
       const authorId = Cookies.get('author_id');

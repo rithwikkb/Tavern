@@ -40,7 +40,7 @@ class SignUpViewTest(APITestCase):
         data = {
             "username": "newuser",
             "email": "newuser@example.com",
-            "password": "newpassword",
+            "password": "Tavern-strong-pass-42",
             "displayName": "New User",
             "github": "https://github.com/newuser"
         }
@@ -48,12 +48,24 @@ class SignUpViewTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['displayName'], 'New User')
 
+    def test_signup_rejects_weak_password(self):
+        data = {
+            "username": "weakuser",
+            "email": "weak@example.com",
+            "password": "password",
+            "displayName": "Weak User",
+        }
+        response = self.client.post(self.url, data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("too common", response.data["message"])
+        self.assertFalse(User.objects.filter(username="weakuser").exists())
+
     def test_signup_username_exists(self):
         User.objects.create_user(username='newuser', password='testpass')
         data = {
             "username": "newuser",
             "email": "newuser@example.com",
-            "password": "newpassword",
+            "password": "Tavern-strong-pass-42",
             "displayName": "New User"
         }
         response = self.client.post(self.url, data)
@@ -63,7 +75,7 @@ class SignUpViewTest(APITestCase):
     def test_signup_missing_fields(self):
         data = {
             "username": "newuser",
-            "password": "newpassword",
+            "password": "Tavern-strong-pass-42",
             "displayName": "New User"
         }
         response = self.client.post(self.url, data)
