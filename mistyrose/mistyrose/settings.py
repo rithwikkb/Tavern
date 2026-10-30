@@ -96,12 +96,19 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# /swagger/ docs: the API uses JWT bearer tokens (see mistyrose/api_docs.py)
 SWAGGER_SETTINGS = {
     'SECURITY_DEFINITIONS': {
-        'Basic': {
-            'type': 'basic'
+        'Bearer': {
+            'type': 'apiKey',
+            'name': 'Authorization',
+            'in': 'header',
+            'description': 'Log in with POST /api/login/, then enter: Bearer <access_token>',
         }
-    }
+    },
+    'USE_SESSION_AUTH': False,
+    'DOC_EXPANSION': 'list',
+    'DEFAULT_MODEL_RENDERING': 'example',
 }
 
 ROOT_URLCONF = 'mistyrose.urls'

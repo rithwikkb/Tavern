@@ -22,16 +22,18 @@ from drf_yasg import openapi
 from rest_framework import permissions
 from django.conf import settings
 from django.views.generic import TemplateView
+from .api_docs import API_DESCRIPTION, TavernSchemaGenerator
 
 
 schema_view = get_schema_view(
     openapi.Info(
-        title="MistyRose API Docs",
+        title="Tavern API",
         default_version='v1',
-        description="MistyRose Swagger style api",
+        description=API_DESCRIPTION,
     ),
     public=True,
     permission_classes=(permissions.AllowAny,),
+    generator_class=TavernSchemaGenerator,
 )
 
 urlpatterns = [
