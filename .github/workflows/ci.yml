@@ -1,0 +1,106 @@
+# Runs on every push to main and every pull request: backend tests, a frontend build,
+# and security checks (dependency audits, static analysis, secret scanning).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege: no job needs more than read access to the code.
+permissions:
+  contents: read
+
+# A newer push to the same branch cancels the older, still-running checks.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Third-party actions are pinned to exact commits (with the tag in a comment), so a moved
+# or compromised tag can't change what runs here. Dependabot keeps the pins up to date.
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Production settings refuse to start without a key; this one exists only for the tests.
+      DJANGO_SECRET_KEY: ci-only-throwaway-key
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Check for missing migrations
+        working-directory: mistyrose
+        run: python manage.py makemigrations --check --dry-run
+      - name: Run tests
+        working-directory: mistyrose
+        run: python manage.py test
+
+  frontend:
+    name: Frontend build and audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      # Only what ships to the browser: react-scripts and other build/test tooling are
+      # dev dependencies and never reach users.
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev
+      # CI=true makes the build fail on any lint warning.
+      - name: Build
+        run: npm run build
+        env:
+          CI: "true"
+          GENERATE_SOURCEMAP: "false"
+
+  security:
+    name: Security scans
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the whole history, for the secret scan
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit==2.10.1 bandit==1.9.4
+      - name: Audit Python dependencies (pip-audit)
+        run: pip-audit -r requirements.txt
+      - name: Static analysis (Bandit)
+        # tests and migrations are excluded; intentional findings are marked inline with `# nosec`
+        run: bandit -r mistyrose -x '*/migrations/*,*/tests.py,*/test_*.py'
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          # sha256 from the release's published checksums file
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          curl -fsSL -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum --check
+          tar -xzf gitleaks.tar.gz gitleaks
+          sudo mv gitleaks /usr/local/bin/
+      - name: Scan for secrets (gitleaks)
+        # uses .gitleaks.toml; findings already reviewed are listed in .gitleaksignore
+        run: gitleaks git . --redact --no-banner

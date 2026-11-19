@@ -196,7 +196,7 @@ ENDPOINTS = {
              'displayName': string('Name shown on posts.'), 'github': string('Optional GitHub profile URL.'),
              'profileImage': string('Optional profile picture URL (see the image upload endpoint).')},
             required=['username', 'email', 'password', 'displayName'],
-            example={'username': 'avery', 'email': 'avery@example.com', 'password': 'a-long-passphrase',
+            example={'username': 'avery', 'email': 'avery@example.com', 'password': 'a-long-passphrase',  # nosec B105
                      'displayName': 'Avery Brooks'},
         )],
         responses=[respond(201, 'Account created; returns the new author.', AUTHOR),
@@ -211,9 +211,9 @@ ENDPOINTS = {
                     'the demo (at most once every 10 minutes). Rate limited per IP.',
         params=[body({'username': string('Username.'), 'password': string('Password.')},
                      required=['username', 'password'],
-                     example={'username': 'demo', 'password': 'TavernDemo2026'})],
+                     example={'username': 'demo', 'password': 'TavernDemo2026'})],  # nosec B105
         responses=[respond(200, 'Logged in.', {'author_id': '18e0d527-7aaa-59cb-a3a9-4c2e13522ca1',
-                                               'access_token': 'eyJhbGciOi…', 'refresh_token': 'eyJhbGciOi…',
+                                               'access_token': 'eyJhbGciOi…', 'refresh_token': 'eyJhbGciOi…',  # nosec B105
                                                'is_demo': True}),
                    respond(401, 'Wrong username or password.', {'error': 'Invalid username or password'}),
                    respond(429, 'Too many attempts; try again in a minute.')],

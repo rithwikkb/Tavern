@@ -833,51 +833,29 @@ class InvalidIdTest(APITestCase):
             self.assertIn(response.status_code, (400, 404), path)
 
 
-class GitHubActivityToPostTest(TestCase):
-    @patch('requests.get')  # Mock GitHub API call
+class GitHubActivityToPostTest(APITestCase):
+    """The GitHub events endpoint passes along an author's public GitHub activity
+    (the frontend turns each event into a post)."""
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        user = User.objects.create_user(username="gh_poster", password="pass")
+        Author.objects.create(display_name="test_author", github="https://github.com/testuser",
+                              host="http://testserver", user=user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {RefreshToken.for_user(user).access_token}")
+
+    @patch("posts.views.requests.get")  # don't call GitHub for real
     def test_github_activity_to_posts(self, mock_get):
-        # Mock the data returned by the GitHub API
-        mock_get.return_value.status_code = 200
-        mock_get.return_value.json.return_value = [
-            {
-                "type": "PushEvent",
-                "repo": {"name": "test-repo"},
-                "created_at": "2024-11-17T12:00:00Z"
-            }
-        ]
+        events = [{"id": "1", "type": "PushEvent", "repo": {"name": "test-repo"},
+                   "created_at": "2024-11-17T12:00:00Z"}]
+        mock_get.return_value.json.return_value = events
+        mock_get.return_value.raise_for_status.return_value = None
 
-        # Create an author object
-        author = Author.objects.create(
-            display_name="test_author",
-            github="https://github.com/testuser",
-            host="http://localhost:8000",
-            page="http://localhost:8000/authors/test_author/"
-        )
+        response = self.client.get("/api/posts/github/events/testuser/")
 
-        # Call the existing route for GitHubEventsView
-        response = self.client.get(f'/github/events/{author.github.split("/")[-1]}/')
-
-        # print("Response type:", type(response))
-        # print("Response content:", response.content.decode())
-
-        # Manually simulate GitHub data processing logic and create posts
-        for event in mock_get.return_value.json.return_value:
-            Post.objects.create(
-                author_id=author,
-                title=f"{event['type']} in {event['repo']['name']}",
-                content=f"Details: {event}",
-                visibility="PUBLIC"
-            )
-
-        # print("All posts in database after test:")
-        # for post in Post.objects.all():
-        #     print(f"Post ID: {post.id}, Title: {post.title}, Author ID: {post.author_id}, Content: {post.content}, Visibility: {post.visibility}")
-
-        # Verify that the post was correctly created
-        self.assertTrue(Post.objects.filter(
-            author_id=author.id,
-            title="PushEvent in test-repo"
-        ).exists())
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, events)
+        self.assertIn("/users/testuser/events", mock_get.call_args[0][0])
 
     # User Story #8 Test: As an author, I want to make posts.
     def test_post_creation_directly(self):

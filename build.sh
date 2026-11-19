@@ -6,7 +6,8 @@ set -o errexit
 pip install -r requirements.txt
 
 cd frontend
-npm ci
+# react-scripts is a dev dependency (build tooling only), so install it even if NODE_ENV=production
+npm ci --include=dev
 # CI=false keeps existing lint warnings from failing the build;
 # GENERATE_SOURCEMAP=false stops publishing the original source alongside the bundle
 # REACT_APP_SITE_URL gives the link-preview tags in index.html absolute URLs

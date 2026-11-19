@@ -1,0 +1,8 @@
+# gitleaks config: the default rules, plus known-safe test values.
+# (Reviewed findings in the git history are listed in .gitleaksignore.)
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Password for a throwaway user in the backend tests"
+regexes = ['''Tavern-strong-pass-42''']

@@ -1,0 +1,33 @@
+# Secrets found in the git history that have been reviewed and are safe to ignore.
+# gitleaks (run in CI) skips these exact findings and still fails on anything new.
+#
+# - frontend/src/... (Oct 2024): DRF auth tokens hardcoded during the class project. They came
+#   from developers' local databases; the live site uses a fresh database and only accepts JWTs
+#   (token authentication is not enabled), so they can't be used.
+# - mistyrose/users/tests.py: a password for a throwaway test user.
+# - mistyrose/staticfiles/.../redoc.min.js: minified vendor code that matches the pattern.
+#
+# To add one: review it, then add the "Fingerprint" from gitleaks' report.
+16119497f9081c74e7df041d22e5495a69e5de14:mistyrose/staticfiles/drf-yasg/redoc/redoc.min.js:generic-api-key:8
+220c3504aa357b129c829cbaf9af8b8954ce43fa:frontend/src/contexts/AuthContext.js:generic-api-key:10
+2307cc5fbd8ef90a1e9cb1e136da61b953260005:frontend/src/components/FollowRequests.jsx:generic-api-key:8
+2a77f87fed1dde905f1b65386dde76d4ee773a79:frontend/src/services/profileService.js:generic-api-key:2
+3c6ad0412a1fa76352b9c97ea49241d6ca6c7e46:mistyrose/users/tests.py:generic-api-key:43
+3c6ad0412a1fa76352b9c97ea49241d6ca6c7e46:mistyrose/users/tests.py:generic-api-key:68
+3c6ad0412a1fa76352b9c97ea49241d6ca6c7e46:mistyrose/users/tests.py:generic-api-key:78
+486f2f3dc44a5019e652cba9c7e44608ca480dab:frontend/src/components/FollowRequests.jsx:generic-api-key:8
+6b20ea21815977ae4fc04abc7ed2a92c9b9e6642:mistyrose/users/tests.py:generic-api-key:625
+6b20ea21815977ae4fc04abc7ed2a92c9b9e6642:mistyrose/users/tests.py:generic-api-key:630
+6b20ea21815977ae4fc04abc7ed2a92c9b9e6642:mistyrose/users/tests.py:generic-api-key:634
+6e3809fd40d5a26f402eca87dadeac9ddefc5b20:mistyrose/users/tests.py:generic-api-key:539
+6e3809fd40d5a26f402eca87dadeac9ddefc5b20:mistyrose/users/tests.py:generic-api-key:547
+6e3809fd40d5a26f402eca87dadeac9ddefc5b20:mistyrose/users/tests.py:generic-api-key:553
+7bd296d58737b852300e0566bdd299868b56a15f:mistyrose/users/tests.py:generic-api-key:611
+9ab2ee8c6741c5d247b665c5aac2e2ead306616f:frontend/src/components/SearchBar.jsx:generic-api-key:11
+9cc97fc23b94e71155099ba7e3215a6bbddf63ff:frontend/src/components/FollowRequests.jsx:generic-api-key:11
+a2f6b4413b232463e80db078a4819388d27fbf09:frontend/src/contexts/AuthContext.js:generic-api-key:10
+c9221052ad36feab0b6d6f330d7eeddbc8f26168:mistyrose/users/tests.py:generic-api-key:695
+c9221052ad36feab0b6d6f330d7eeddbc8f26168:mistyrose/users/tests.py:generic-api-key:709
+c9221052ad36feab0b6d6f330d7eeddbc8f26168:mistyrose/users/tests.py:generic-api-key:714
+c9221052ad36feab0b6d6f330d7eeddbc8f26168:mistyrose/users/tests.py:generic-api-key:719
+c9221052ad36feab0b6d6f330d7eeddbc8f26168:mistyrose/users/tests.py:generic-api-key:724
