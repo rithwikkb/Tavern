@@ -71,6 +71,15 @@ Then open http://127.0.0.1:8000. The admin panel is at `/admin/`.
 
 Run the backend tests with `python manage.py test` from `mistyrose/`.
 
+To run the same security checks as CI before opening a pull request (from the repo root, with `pip install pip-audit bandit` and [gitleaks](https://github.com/gitleaks/gitleaks) installed):
+
+```bash
+pip-audit -r requirements.txt                                  # known vulnerabilities in Python packages
+(cd frontend && npm audit --omit=dev)                          # ... and in the packages that ship to the browser
+bandit -r mistyrose -x '*/migrations/*,*/tests.py,*/test_*.py'  # Python static analysis
+gitleaks git .                                                 # secrets anywhere in the git history
+```
+
 ## Security and CI
 
 Every pull request runs these checks in GitHub Actions, and `main` only accepts pull requests that pass all of them:
