@@ -4,7 +4,7 @@ djangorestframework_simplejwt==5.5.1
 drf-yasg==1.21.18
 django-cors-headers==4.9.0
 dj-database-url==3.1.2
-gunicorn==26.2.0
+gunicorn==27.0.1
 psycopg2-binary==2.9.13
 pillow==13.0.0
 requests==2.34.2
