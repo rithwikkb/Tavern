@@ -17,10 +17,14 @@ API_DESCRIPTION = """
 Tavern's REST API: the same API the web app uses.
 
 **Logging in.** `POST /api/login/` with a username and password returns an
-`access_token` (valid for an hour) and a `refresh_token`. Send the access token as
-`Authorization: Bearer <access_token>`. To try authenticated endpoints here, log in
+`access_token` (valid for an hour) and a `refresh_token`. API clients send the access token
+as `Authorization: Bearer <access_token>`. To try authenticated endpoints here, log in
 with the demo account (`demo` / `TavernDemo2026`), click **Authorize** and paste
 `Bearer <access_token>`.
+
+**In the browser,** login also sets both tokens as `HttpOnly` cookies, so page scripts can
+never read them. Requests authenticated by cookie that change something must also send the
+`csrftoken` cookie's value in an `X-CSRFToken` header. Requests with a Bearer header don't.
 
 **IDs.** Authors, posts, comments and likes are identified by UUIDs. Responses also
 include each object's full URL as its `id` (e.g.
@@ -211,8 +215,9 @@ ENDPOINTS = {
     ('/api/login/', 'post'): dict(
         tag='Auth', public=True,
         summary='Log in',
-        description='Returns JWT access and refresh tokens. Logging in as the demo account also resets '
-                    'the demo (at most once every 10 minutes). Rate limited per IP.',
+        description='Returns JWT access and refresh tokens, and also sets them as HttpOnly cookies '
+                    '(plus a readable `csrftoken` cookie) for the browser app. Logging in as the demo '
+                    'account also resets the demo (at most once every 10 minutes). Rate limited per IP.',
         params=[body({'username': string('Username.'), 'password': string('Password.')},
                      required=['username', 'password'],
                      example={'username': settings.DEMO_USERNAME, 'password': settings.DEMO_PASSWORD})],
@@ -225,21 +230,26 @@ ENDPOINTS = {
     ('/api/users/token/refresh/', 'post'): dict(
         tag='Auth', public=True,
         summary='Get a new access token',
-        description='Trades a refresh token for a new access token. Refresh tokens are rotated: the response '
-                    'includes a new refresh token, and the old one stops working.',
-        params=[body({'refresh': string('The refresh token.')}, required=['refresh'],
+        description='Trades a refresh token for new tokens. Refresh tokens are rotated, so the old one '
+                    'stops working. With the token in the body (API clients), the new tokens come back in '
+                    'the body. With no body, the browser\'s refresh token cookie is used instead, and the '
+                    'new tokens are only set as cookies, never returned.',
+        params=[body({'refresh': string('The refresh token. Leave the body out to use the cookie.')},
                      example={'refresh': EXAMPLE_TOKEN})],
-        responses=[respond(200, 'New tokens.', {'access': EXAMPLE_TOKEN, 'refresh': EXAMPLE_TOKEN}),
-                   respond(401, 'Refresh token is invalid, expired or already used.')],
+        responses=[respond(200, 'New tokens (or, with the cookie, new cookies).',
+                           {'access': EXAMPLE_TOKEN, 'refresh': EXAMPLE_TOKEN}),
+                   respond(401, 'Refresh token is missing, invalid, expired or already used.')],
     ),
     ('/api/users/logout/', 'post'): dict(
         tag='Auth', public=True,
         summary='Log out',
-        description='Revokes the refresh token so it can no longer be used. Works even after the access '
-                    'token has expired.',
-        params=[body({'refresh': string('The refresh token to revoke.')}, required=['refresh'],
+        description='Revokes the refresh token so it can no longer be used, and clears the login cookies. '
+                    'Works even after the access token has expired. Without a body it uses the browser\'s '
+                    'refresh token cookie, which then needs the CSRF header.',
+        params=[body({'refresh': string('The refresh token to revoke. Leave the body out to use the cookie.')},
                      example={'refresh': EXAMPLE_TOKEN})],
-        responses=[respond(200, 'Logged out.', {'message': 'Logged out successfully.'})],
+        responses=[respond(200, 'Logged out.', {'message': 'Logged out successfully.'}),
+                   respond(403, 'Logging out with the cookie, without a valid CSRF token.')],
     ),
     ('/authors/{username}/upload_image/', 'post'): dict(
         tag='Auth', public=True,

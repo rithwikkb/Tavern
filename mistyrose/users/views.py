@@ -8,7 +8,9 @@ from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny  
 from rest_framework_simplejwt.tokens import RefreshToken  
 from rest_framework_simplejwt.exceptions import TokenError
-from rest_framework_simplejwt.authentication import JWTAuthentication  
+from rest_framework_simplejwt.views import TokenRefreshView
+from django.middleware.csrf import get_token
+from .authentication import CookieJWTAuthentication, clear_auth_cookies, enforce_csrf, set_auth_cookies, REFRESH_COOKIE
 from django.contrib.auth.models import User  
 from django.db import transaction  
 from .models import Author, Follows
@@ -91,7 +93,8 @@ class LoginView(APIView):
         refresh = RefreshToken.for_user(user)  # Generate JWT refresh token for the user
         access_token = str(refresh.access_token)  # Get the access token from the refresh token
         
-        # Return tokens and author_id in the response
+        # The browser app uses the HttpOnly cookies set below; the tokens are also in the body
+        # for API clients (logging in needs the password, so this doesn't help an XSS attack)
         response = Response({
             "author_id": author_id,
             "refresh_token": str(refresh),
@@ -99,8 +102,10 @@ class LoginView(APIView):
             # lets the app hide things the shared demo account can't do (like editing its profile)
             "is_demo": user.username == settings.DEMO_USERNAME,
         }, status=status.HTTP_200_OK)
-
-        return response  # Return the final response containing the tokens
+        set_auth_cookies(response, request, access_token, refresh)
+        # sets the (readable) CSRF cookie that the app sends back as X-CSRFToken
+        get_token(request)
+        return response
 
 # Signup view for user registration
 class SignUpView(APIView):
@@ -203,17 +208,55 @@ class LogoutView(APIView):
     authentication_classes = []
 
     def post(self, request):
-        refresh_token = request.data.get('refresh') or request.COOKIES.get('refresh_token')
+        refresh_token = request.data.get('refresh')
+        if not refresh_token and request.COOKIES.get(REFRESH_COOKIE):
+            # logging out with the cookie: make sure another site can't do it for the user
+            enforce_csrf(request)
+            refresh_token = request.COOKIES.get(REFRESH_COOKIE)
         if refresh_token:
             try:
                 RefreshToken(refresh_token).blacklist()
             except TokenError:
                 pass  # already expired or revoked: the session is over either way
-        return Response({"message": "Logged out successfully."}, status=status.HTTP_200_OK)
+        response = Response({"message": "Logged out successfully."}, status=status.HTTP_200_OK)
+        clear_auth_cookies(response)
+        return response
+
+
+class CookieTokenRefreshView(TokenRefreshView):
+    """
+    Trade a refresh token for new tokens (refresh tokens rotate, so both are new).
+
+    API clients send the refresh token in the body and get the new tokens back in the body.
+    The browser app relies on the refresh token cookie instead; then the new tokens are only
+    set as HttpOnly cookies and never returned, so injected script couldn't read them by
+    calling this endpoint.
+    """
+    authentication_classes = []
+
+    def post(self, request, *args, **kwargs):
+        from_cookie = 'refresh' not in request.data
+        if from_cookie and not request.COOKIES.get(REFRESH_COOKIE):
+            return Response({"detail": "Not logged in."}, status=status.HTTP_401_UNAUTHORIZED)
+        data = {'refresh': request.COOKIES[REFRESH_COOKIE]} if from_cookie else request.data
+        serializer = self.get_serializer(data=data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except TokenError as error:
+            response = Response({"detail": str(error)}, status=status.HTTP_401_UNAUTHORIZED)
+            if from_cookie:
+                clear_auth_cookies(response)
+            return response
+        tokens = serializer.validated_data
+        if not from_cookie:
+            return Response(tokens, status=status.HTTP_200_OK)
+        response = Response({"detail": "Tokens refreshed."}, status=status.HTTP_200_OK)
+        set_auth_cookies(response, request, tokens['access'], tokens.get('refresh', data['refresh']))
+        return response
 
 # View for verifying if a JWT token is still valid
 class VerifyTokenView(APIView):
-    authentication_classes = [JWTAuthentication]  # Use JWT for authentication
+    authentication_classes = [CookieJWTAuthentication]  # Use JWT for authentication
     permission_classes = [IsAuthenticated]  # User must be authenticated
 
     def get(self, request):
@@ -363,7 +406,7 @@ class AuthorEditProfileView(APIView):
 
 
 class AuthorsView(ListAPIView): #used ListAPIView because this is used to handle a collection of model instances AND comes with pagination
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = [CookieJWTAuthentication]
     #asked chatGPT how to get the authors using ListAPIView 2024-10-18
     # variables that ListAPIView needs
     serializer_class = AuthorSerializer

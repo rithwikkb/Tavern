@@ -1,4 +1,4 @@
-from django.test import TestCase
+from django.test import Client, TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -760,10 +760,20 @@ class LogoutAndCookiesTest(TestCase):
         Author.objects.create(display_name="Leaver", host="http://testserver", user=user)
         self.client_ = APIClient()
 
-    def test_login_sets_no_server_cookies(self):
-        response = self.client_.post("/api/login/", {"username": "leaver", "password": "Tavern-strong-pass-42"}, format="json")
+    def test_login_sets_httponly_token_cookies(self):
+        response = self.client_.post("/api/login/", {"username": "leaver", "password": "Tavern-strong-pass-42"},
+                                     format="json", secure=True)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.cookies), 0)
+        access, refresh = response.cookies["access_token"], response.cookies["refresh_token"]
+        for cookie in (access, refresh):
+            self.assertTrue(cookie["httponly"])
+            self.assertTrue(cookie["secure"])
+            self.assertEqual(cookie["samesite"], "Strict")
+        self.assertEqual(access["path"], "/")
+        # the refresh token only goes to the refresh and logout URLs
+        self.assertEqual(refresh["path"], "/api/users/")
+        # the CSRF cookie has to stay readable: the app sends its value back in a header
+        self.assertFalse(response.cookies["csrftoken"]["httponly"])
 
     def test_logout_revokes_refresh_token(self):
         tokens = self.client_.post("/api/login/", {"username": "leaver", "password": "Tavern-strong-pass-42"}, format="json").data
@@ -781,3 +791,61 @@ class LogoutAndCookiesTest(TestCase):
         response = self.client_.post("/api/users/logout/", {"refresh": "garbage"}, format="json")
         self.assertEqual(response.status_code, 200)
 
+
+
+class CookieAuthTest(TestCase):
+    """The browser app logs in with HttpOnly cookies, protected by CSRF; Bearer headers still work."""
+    def setUp(self):
+        user = User.objects.create_user(username="cookie_user", password="Tavern-strong-pass-42")
+        Author.objects.create(display_name="Cookie", host="http://testserver", user=user)
+        self.browser = Client(enforce_csrf_checks=True)
+        self.login = self.browser.post("/api/login/", {"username": "cookie_user", "password": "Tavern-strong-pass-42"},
+                                       content_type="application/json")
+        self.csrf = {"HTTP_X_CSRFTOKEN": self.browser.cookies["csrftoken"].value}
+
+    def test_cookie_login_reads_without_a_csrf_token(self):
+        self.assertEqual(self.browser.get("/api/notifications/").status_code, 200)
+
+    def test_cookie_login_needs_a_csrf_token_to_change_things(self):
+        self.assertEqual(self.browser.post("/api/notifications/read/").status_code, 403)
+        self.assertEqual(self.browser.post("/api/notifications/read/", **self.csrf).status_code, 204)
+
+    def test_bearer_header_needs_no_csrf_token(self):
+        api_client = Client(enforce_csrf_checks=True)
+        response = api_client.post("/api/notifications/read/",
+                                   HTTP_AUTHORIZATION=f"Bearer {self.login.json()['access_token']}")
+        self.assertEqual(response.status_code, 204)
+
+    def test_refresh_with_the_cookie_never_returns_tokens(self):
+        old_refresh = self.browser.cookies["refresh_token"].value
+        response = self.browser.post("/api/users/token/refresh/")
+        self.assertEqual(response.status_code, 200)
+        # injected script could read tokens from the body, so they only come back as cookies
+        self.assertNotIn("access", response.json())
+        self.assertNotIn("refresh", response.json())
+        self.assertNotEqual(response.cookies["refresh_token"].value, old_refresh)
+        self.assertTrue(response.cookies["access_token"]["httponly"])
+        # refresh tokens rotate: the old one no longer works
+        reuse = Client().post("/api/users/token/refresh/", {"refresh": old_refresh}, content_type="application/json")
+        self.assertEqual(reuse.status_code, 401)
+
+    def test_refresh_without_any_token_is_401(self):
+        self.assertEqual(Client().post("/api/users/token/refresh/").status_code, 401)
+
+    def test_refresh_with_the_token_in_the_body_returns_tokens(self):
+        # how API clients refresh
+        response = Client().post("/api/users/token/refresh/", {"refresh": self.login.json()["refresh_token"]},
+                                 content_type="application/json")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("access", response.json())
+
+    def test_cookie_logout_needs_csrf_then_revokes_and_clears(self):
+        refresh = self.browser.cookies["refresh_token"].value
+        self.assertEqual(self.browser.post("/api/users/logout/").status_code, 403)
+
+        response = self.browser.post("/api/users/logout/", **self.csrf)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.cookies["access_token"].value, "")
+        self.assertEqual(response.cookies["refresh_token"].value, "")
+        reuse = Client().post("/api/users/token/refresh/", {"refresh": refresh}, content_type="application/json")
+        self.assertEqual(reuse.status_code, 401)
