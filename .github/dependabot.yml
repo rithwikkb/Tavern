@@ -1,5 +1,9 @@
 # Dependabot opens pull requests for dependency updates (and immediately for security fixes).
 # Minor and patch updates are grouped into one PR per ecosystem to keep the noise down.
+#
+# Major upgrades of the core frameworks are skipped: each is a migration to plan and test
+# by hand, not something to merge from an automated PR. Their patch and security updates
+# still come through.
 version: 2
 updates:
   - package-ecosystem: pip
@@ -9,6 +13,10 @@ updates:
     groups:
       python-minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # stay on Django 5.2, the long-term support release (security fixes until April 2028)
+      - dependency-name: django
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: npm
     directory: /frontend
@@ -17,6 +25,15 @@ updates:
     groups:
       npm-minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # React, React DOM and MUI have to move to a new major together, so a PR that
+      # upgrades just one of them can't install
+      - dependency-name: react
+        update-types: ["version-update:semver-major"]
+      - dependency-name: react-dom
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@mui/*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
