@@ -9,6 +9,7 @@ federation spec) still work but are left out of the docs.
 """
 import re
 
+from django.conf import settings
 from drf_yasg import openapi
 from drf_yasg.generators import OpenAPISchemaGenerator
 
@@ -68,6 +69,9 @@ PATH_PARAMS = {
 # ---------- example objects ----------
 
 HOST = 'https://tavern-weyv.onrender.com'
+# example values only (not real credentials); the demo example uses the real public demo login
+EXAMPLE_PASSWORD = 'a-long-passphrase'  # nosec B105
+EXAMPLE_TOKEN = 'eyJhbGciOi…'  # nosec B105
 AUTHOR_ID = 'ec954a5d-08eb-5b89-b985-3b8fd81351d0'
 POST_ID = '7b2f1c3e-5a4d-5e6f-8a9b-0c1d2e3f4a5b'
 
@@ -196,7 +200,7 @@ ENDPOINTS = {
              'displayName': string('Name shown on posts.'), 'github': string('Optional GitHub profile URL.'),
              'profileImage': string('Optional profile picture URL (see the image upload endpoint).')},
             required=['username', 'email', 'password', 'displayName'],
-            example={'username': 'avery', 'email': 'avery@example.com', 'password': 'a-long-passphrase',  # nosec B105
+            example={'username': 'avery', 'email': 'avery@example.com', 'password': EXAMPLE_PASSWORD,
                      'displayName': 'Avery Brooks'},
         )],
         responses=[respond(201, 'Account created; returns the new author.', AUTHOR),
@@ -211,9 +215,9 @@ ENDPOINTS = {
                     'the demo (at most once every 10 minutes). Rate limited per IP.',
         params=[body({'username': string('Username.'), 'password': string('Password.')},
                      required=['username', 'password'],
-                     example={'username': 'demo', 'password': 'TavernDemo2026'})],  # nosec B105
+                     example={'username': settings.DEMO_USERNAME, 'password': settings.DEMO_PASSWORD})],
         responses=[respond(200, 'Logged in.', {'author_id': '18e0d527-7aaa-59cb-a3a9-4c2e13522ca1',
-                                               'access_token': 'eyJhbGciOi…', 'refresh_token': 'eyJhbGciOi…',  # nosec B105
+                                               'access_token': EXAMPLE_TOKEN, 'refresh_token': EXAMPLE_TOKEN,
                                                'is_demo': True}),
                    respond(401, 'Wrong username or password.', {'error': 'Invalid username or password'}),
                    respond(429, 'Too many attempts; try again in a minute.')],
@@ -224,8 +228,8 @@ ENDPOINTS = {
         description='Trades a refresh token for a new access token. Refresh tokens are rotated: the response '
                     'includes a new refresh token, and the old one stops working.',
         params=[body({'refresh': string('The refresh token.')}, required=['refresh'],
-                     example={'refresh': 'eyJhbGciOi…'})],
-        responses=[respond(200, 'New tokens.', {'access': 'eyJhbGciOi…', 'refresh': 'eyJhbGciOi…'}),
+                     example={'refresh': EXAMPLE_TOKEN})],
+        responses=[respond(200, 'New tokens.', {'access': EXAMPLE_TOKEN, 'refresh': EXAMPLE_TOKEN}),
                    respond(401, 'Refresh token is invalid, expired or already used.')],
     ),
     ('/api/users/logout/', 'post'): dict(
@@ -234,7 +238,7 @@ ENDPOINTS = {
         description='Revokes the refresh token so it can no longer be used. Works even after the access '
                     'token has expired.',
         params=[body({'refresh': string('The refresh token to revoke.')}, required=['refresh'],
-                     example={'refresh': 'eyJhbGciOi…'})],
+                     example={'refresh': EXAMPLE_TOKEN})],
         responses=[respond(200, 'Logged out.', {'message': 'Logged out successfully.'})],
     ),
     ('/authors/{username}/upload_image/', 'post'): dict(

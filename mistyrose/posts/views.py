@@ -467,9 +467,10 @@ class PostImageView(APIView):
 
             # return Response(binary_image, content_type=post.content_type)
             return FileResponse(binary_image, content_type=post.content_type)
-        except Exception as e:
-            print(f"Error decoding image: {e}")
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception:
+            # post.id comes from the database, so it's safe to log (unlike the raw URL value)
+            logger.exception("Couldn't decode the image of post %s", post.id)
+            return Response({"error": "This post's image couldn't be loaded."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class PublicPostsView(APIView):
     # The home feed: every post the current author is allowed to see, newest first

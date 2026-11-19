@@ -189,9 +189,11 @@ class SignUpView(APIView):
                 
                 response = Response(serializer.data, status=status.HTTP_201_CREATED)  # Return the serialized author
                 return response
-        except Exception as e:
+        except Exception:
+            # the details (which can include database internals) go to the server log, not the client
+            logger.exception("Signup failed")
             return Response(
-                {"message": f"An error occurred: {str(e)}"},  # Handle any errors that occur
+                {"message": "Something went wrong creating your account. Please try again."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 class LogoutView(APIView):
@@ -642,10 +644,11 @@ class ProfileImageUploadView(APIView):
 
             imgur_url, error = upload_to_imgur(file)
             if error:
-                return Response({"error": f"ProfileImageUploadView - POST - Couldn't upload {file.name}: {str(error)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                logger.error("Profile image upload to Imgur failed: %s", error)
+                return Response({"error": "Couldn't upload the picture. Please try again."}, status=status.HTTP_502_BAD_GATEWAY)
             
             return Response({"message": "Profile image uploaded successfully.", "url": imgur_url[0]}, status=status.HTTP_200_OK)
         
-        except Exception as e:
-            print(f"ProfileImageUploadView - POST - Error: {str(e)}")
-            return Response({"error": f"ProfileImageUploadView - POST - {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception:
+            logger.exception("Profile image upload failed")
+            return Response({"error": "Couldn't upload the picture. Please try again."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

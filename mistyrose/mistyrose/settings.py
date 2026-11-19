@@ -33,7 +33,8 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
 if not SECRET_KEY:
     if not DEBUG:
         raise ImproperlyConfigured("Set DJANGO_SECRET_KEY (or DJANGO_DEBUG=True for local development).")
-    SECRET_KEY = "django-insecure-local-dev-only-key-do-not-use-in-production"  # nosec B105: only used with DEBUG on
+    # only ever used with DEBUG on (the check above refuses to start production without a key)
+    SECRET_KEY = "django-insecure-local-dev-only-key-do-not-use-in-production"  # nosec B105
 
 # True while running `manage.py test`
 TESTING = "test" in sys.argv
@@ -280,7 +281,8 @@ SIGNUP_REQUIRES_APPROVAL = os.environ.get("SIGNUP_REQUIRES_APPROVAL", "False").l
 # Shared demo account created by `manage.py seed_demo`; the login page has a button that signs in with it.
 # The password is public on purpose (it's shown to visitors), so the account's profile can't be edited.
 DEMO_USERNAME = "demo"
-DEMO_PASSWORD = "TavernDemo2026"  # nosec B105: public demo login, shown on the login page
+# public on purpose: it's shown on the login page
+DEMO_PASSWORD = "TavernDemo2026"  # nosec B105
 # Logging in as the demo restores its seeded state, at most this often (see users/demo.py)
 DEMO_RESET_INTERVAL_MINUTES = 10
 # Usernames reserved for seeded sample people (see seed_demo)
