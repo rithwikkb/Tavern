@@ -26,8 +26,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      # Production settings refuse to start without a key; this one exists only for the tests.
-      DJANGO_SECRET_KEY: ci-only-throwaway-key
+      # Production settings refuse to start without a key; this one exists only for CI
+      # (50+ characters, so it also passes Django's deployment checks).
+      DJANGO_SECRET_KEY: ci-only-throwaway-key-for-tests-and-deploy-checks-not-a-real-secret
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -40,6 +41,11 @@ jobs:
       - name: Check for missing migrations
         working-directory: mistyrose
         run: python manage.py makemigrations --check --dry-run
+      # Django's production security checklist (HTTPS redirect, HSTS, secure cookies, CSRF, ...);
+      # any warning fails the build, so a setting can't quietly be weakened
+      - name: Check production security settings
+        working-directory: mistyrose
+        run: python manage.py check --deploy --fail-level WARNING
       - name: Run tests
         working-directory: mistyrose
         run: python manage.py test

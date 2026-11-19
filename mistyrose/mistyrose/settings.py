@@ -90,6 +90,9 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'mistyrose.middleware.TrailingSlashMiddleware',
+    # the API authenticates with JWT headers (and DRF exempts its views), so this guards the
+    # cookie-based parts: the Django admin and anything added later
+    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -253,6 +256,23 @@ APPEND_SLASH = True
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+
+# HTTPS everywhere in production. Render ends TLS and forwards the request, which is why
+# SECURE_PROXY_SSL_HEADER is set above. Off while testing (the test client uses http), and
+# DJANGO_SECURE_SSL_REDIRECT=False turns it off for running the production setup locally.
+SECURE_SSL_REDIRECT = not DEBUG and not TESTING and os.environ.get(
+    "DJANGO_SECURE_SSL_REDIRECT", "True").lower() in ("1", "true", "yes")
+# the health check answers on plain http too, for hosts that probe it that way
+SECURE_REDIRECT_EXEMPT = [r"^healthz/$"]
+
+# HSTS tells browsers to only ever use https for this site. Start short: if https ever broke,
+# browsers would refuse plain http for this long. Raise DJANGO_HSTS_SECONDS (e.g. to 31536000,
+# a year) once https is confirmed working.
+SECURE_HSTS_SECONDS = 0 if DEBUG else int(os.environ.get("DJANGO_HSTS_SECONDS", "3600"))
+# the site has no subdomains of its own, so this costs nothing
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+# HSTS preloading needs a domain you own; this site is a subdomain of Render's onrender.com
+SILENCED_SYSTEM_CHECKS = ['security.W021']
 
 # New signups can log in right away unless this is enabled (then an admin must activate them)
 SIGNUP_REQUIRES_APPROVAL = os.environ.get("SIGNUP_REQUIRES_APPROVAL", "False").lower() in ("1", "true", "yes")

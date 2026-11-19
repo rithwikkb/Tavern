@@ -23,6 +23,7 @@ from rest_framework import permissions
 from django.conf import settings
 from django.views.generic import TemplateView
 from .api_docs import API_DESCRIPTION, TavernSchemaGenerator
+from .health import healthz
 
 
 schema_view = get_schema_view(
@@ -37,6 +38,7 @@ schema_view = get_schema_view(
 )
 
 urlpatterns = [
+    path('healthz/', healthz, name='healthz'),
     path('admin/', admin.site.urls),
     path('api/posts/', include('posts.urls')),
     path('api/users/', include('users.urls')),

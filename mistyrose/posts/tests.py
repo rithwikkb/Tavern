@@ -966,11 +966,9 @@ class CommonMarkPostTest(APITestCase):
         self.assertIsNotNone(match, "Post ID does not contain a valid UUID")
         post_uuid = match.group(1)
 
-        print("Extracted UUID:", post_uuid)  # Debugging: Print extracted UUID
 
         # Construct the correct URL for GET request
         get_url = f"{self.post_url}{post_uuid}/"
-        # print("Constructed GET URL:", get_url)  # Debugging: Print GET URL
 
         # Get the post and verify whether the returned content is consistent with the input
         get_response = self.client.get(get_url)
@@ -1015,11 +1013,9 @@ class PlainTextPostTest(APITestCase):
         self.assertIsNotNone(match, "Post ID does not contain a valid UUID")
         post_uuid = match.group(1)
 
-        print("Extracted UUID:", post_uuid)  
 
         # Construct the correct URL for GET request
         get_url = f"{self.post_url}{post_uuid}/"
-        print("Constructed GET URL:", get_url)  
 
         # Get the post and verify that the content matches the input
         get_response = self.client.get(get_url)
@@ -1070,11 +1066,9 @@ class ImagePostTest(APITestCase):
         self.assertIsNotNone(match, "Post ID does not contain a valid UUID")
         post_uuid = match.group(1)
 
-        print("Extracted UUID:", post_uuid)  
 
         # Construct the correct URL for GET request
         get_url = f"{self.post_url}{post_uuid}/"
-        print("Constructed GET URL:", get_url)  
         
         # Get post data and verify
         get_response = self.client.get(get_url)

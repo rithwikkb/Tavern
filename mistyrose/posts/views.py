@@ -948,7 +948,7 @@ class LikedView(APIView):
             return Response({"error": "LikedView - GET - Invalid FQID or SERIAL."}, status=status.HTTP_400_BAD_REQUEST)
         
         author = get_object_or_404(Author, id=author_serial)
-        likes = author.likes.all()
+        likes = author.likes.all().order_by('-published')
 
         # Pagination setup
         paginator = LikesPagination()
@@ -1187,7 +1187,7 @@ class LikedFQIDView(APIView):
             return Response({"error": "Invalid FQID format"}, status=status.HTTP_400_BAD_REQUEST)
         
         author = get_object_or_404(Author, id=author_serial)
-        likes = author.likes.all()
+        likes = author.likes.all().order_by('-published')
 
         # Pagination setup
         paginator = LikesPagination()

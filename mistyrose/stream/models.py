@@ -1,6 +1,6 @@
 from django.db import models
 import uuid
-from datetime import datetime
+from django.utils import timezone
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
 
@@ -19,7 +19,7 @@ class Inbox(models.Model):
 
     type = models.CharField(max_length=100, choices=OBJECT_CHOICES)
     author = models.ForeignKey('users.Author', on_delete=models.CASCADE, related_name='author') #TODO: replace 'users.Author' with path to author
-    created_at = models.DateTimeField("date requested", default=datetime.now)
+    created_at = models.DateTimeField("date requested", default=timezone.now)  # time zone aware
 
     # using generic foreign key so we can have "polymorphic" relationships between the tables (Like, Comment, Follow, Post)
     # https://docs.djangoproject.com/en/5.1/ref/contrib/contenttypes/#generic-relations for setting up generic foreign key 2024-10-14
