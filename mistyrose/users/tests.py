@@ -828,6 +828,8 @@ class CookieAuthTest(TestCase):
         # refresh tokens rotate: the old one no longer works
         reuse = Client().post("/api/users/token/refresh/", {"refresh": old_refresh}, content_type="application/json")
         self.assertEqual(reuse.status_code, 401)
+        # a generic message, not the library's internal error text
+        self.assertEqual(reuse.json(), {"detail": "Refresh token is invalid or expired."})
 
     def test_refresh_without_any_token_is_401(self):
         self.assertEqual(Client().post("/api/users/token/refresh/").status_code, 401)

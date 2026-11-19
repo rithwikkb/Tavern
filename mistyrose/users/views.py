@@ -242,8 +242,9 @@ class CookieTokenRefreshView(TokenRefreshView):
         serializer = self.get_serializer(data=data)
         try:
             serializer.is_valid(raise_exception=True)
-        except TokenError as error:
-            response = Response({"detail": str(error)}, status=status.HTTP_401_UNAUTHORIZED)
+        except TokenError:
+            # an expired or reused refresh token is a normal end of session, not an error worth logging
+            response = Response({"detail": "Refresh token is invalid or expired."}, status=status.HTTP_401_UNAUTHORIZED)
             if from_cookie:
                 clear_auth_cookies(response)
             return response
@@ -251,7 +252,9 @@ class CookieTokenRefreshView(TokenRefreshView):
         if not from_cookie:
             return Response(tokens, status=status.HTTP_200_OK)
         response = Response({"detail": "Tokens refreshed."}, status=status.HTTP_200_OK)
-        set_auth_cookies(response, request, tokens['access'], tokens.get('refresh', data['refresh']))
+        # only cookies the server just issued: with rotation on there's always a new refresh token,
+        # and without one the browser's existing refresh cookie is simply left as it is
+        set_auth_cookies(response, request, tokens['access'], tokens.get('refresh'))
         return response
 
 # View for verifying if a JWT token is still valid

@@ -29,7 +29,7 @@ def enforce_csrf(request):
         raise exceptions.PermissionDenied(f'CSRF Failed: {reason}')
 
 
-def set_auth_cookies(response, request, access, refresh):
+def set_auth_cookies(response, request, access, refresh=None):
     lifetimes = settings.SIMPLE_JWT
     common = {
         'httponly': True,
@@ -39,8 +39,9 @@ def set_auth_cookies(response, request, access, refresh):
     }
     response.set_cookie(ACCESS_COOKIE, str(access), path='/',
                         max_age=int(lifetimes['ACCESS_TOKEN_LIFETIME'].total_seconds()), **common)
-    response.set_cookie(REFRESH_COOKIE, str(refresh), path=REFRESH_COOKIE_PATH,
-                        max_age=int(lifetimes['REFRESH_TOKEN_LIFETIME'].total_seconds()), **common)
+    if refresh is not None:
+        response.set_cookie(REFRESH_COOKIE, str(refresh), path=REFRESH_COOKIE_PATH,
+                            max_age=int(lifetimes['REFRESH_TOKEN_LIFETIME'].total_seconds()), **common)
 
 
 def clear_auth_cookies(response):
