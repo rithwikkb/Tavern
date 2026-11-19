@@ -42,10 +42,11 @@ jobs:
         working-directory: mistyrose
         run: python manage.py makemigrations --check --dry-run
       # Django's production security checklist (HTTPS redirect, HSTS, secure cookies, CSRF, ...);
-      # any warning fails the build, so a setting can't quietly be weakened
+      # any warning fails the build, so a setting can't quietly be weakened. Only the security
+      # checks run here: the frontend isn't built in this job, so static-file checks would fail.
       - name: Check production security settings
         working-directory: mistyrose
-        run: python manage.py check --deploy --fail-level WARNING
+        run: python manage.py check --deploy --tag security --fail-level WARNING
       - name: Run tests
         working-directory: mistyrose
         run: python manage.py test
