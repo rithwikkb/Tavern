@@ -47,6 +47,18 @@ the demo account is undone automatically the next time someone logs in as the de
 - **Frontend:** React 18, React Router 7, Material UI
 - **Database:** PostgreSQL in production, SQLite locally
 
+## Running with Docker
+
+The quickest way to run everything, with the same PostgreSQL database as production:
+
+```bash
+docker compose up --build
+```
+
+Then open http://localhost:8000 and click **Try the demo account**. The first start applies the migrations and loads the demo data; `docker compose down -v` removes the containers and the database again.
+
+The image is a multi-stage build: Node builds the React frontend, and only the built files go into a slim Python image that runs gunicorn as an unprivileged user, with a health check on `/healthz/`. CI builds and starts the image on every pull request.
+
 ## Running locally
 
 ```bash
@@ -86,6 +98,7 @@ Every pull request runs these checks in GitHub Actions, and `main` only accepts 
 
 - **Tests:** the backend test suite (160+ tests), a check for missing migrations, and Django's production security checklist (`manage.py check --deploy`)
 - **Frontend:** a production build that fails on any lint warning
+- **Docker:** the image is built and started, and must pass its health check and run as a non-root user
 - **Dependencies:** `pip-audit` and `npm audit` (packages that ship to the browser) for known vulnerabilities, and Dependabot opens weekly update PRs
 - **Code scanning:** CodeQL for Python and JavaScript, and Bandit for Python
 - **Secrets:** gitleaks scans the full git history, and GitHub secret scanning with push protection blocks pushes that contain secrets

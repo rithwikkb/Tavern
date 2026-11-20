@@ -136,12 +136,13 @@ WSGI_APPLICATION = 'mistyrose.wsgi.application'
 
 # Database
 if os.environ.get("DATABASE_URL"):
-    # Running against a hosted Postgres database (e.g. Neon, Supabase, Render)
+    # Running against a hosted Postgres database (e.g. Neon, Supabase, Render). Hosted
+    # databases need SSL; DATABASE_SSL_REQUIRE=False is for the local Postgres in docker-compose.
     DATABASES = {
         "default": dj_database_url.config(
             conn_max_age=600,
             conn_health_checks=True,
-            ssl_require=True
+            ssl_require=os.environ.get("DATABASE_SSL_REQUIRE", "True").lower() in ("1", "true", "yes"),
         )
     }
 else:

@@ -1,0 +1,20 @@
+# Keep the build context (and the image) to what the Dockerfile actually uses
+.git
+.github
+.gitleaks*
+docs
+**/node_modules
+frontend/build
+**/__pycache__
+**/*.pyc
+**/*.sqlite3
+mistyrose/staticfiles
+mistyrose/media
+.venv
+venv
+# secrets and local settings never go into an image
+.env
+*.env
+**/.env*
+!.env.example
+.DS_Store
