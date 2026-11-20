@@ -30,9 +30,10 @@ const Login = () => {
       if (!response) {
         throw new Error('Login failed: No response');
       }
-      const { refresh_token, access_token, author_id, is_demo } = response;
+      // the server has set the login tokens as HttpOnly cookies
+      const { author_id, is_demo } = response;
 
-      setAuthCookies({ authorId: author_id, accessToken: access_token, refreshToken: refresh_token, isDemo: Boolean(is_demo) });
+      setAuthCookies({ authorId: author_id, isDemo: Boolean(is_demo) });
 
       navigate('/');
     } catch (error) {

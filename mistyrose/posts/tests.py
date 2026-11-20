@@ -38,6 +38,9 @@ class BaseTestCase(APITestCase):
         if response.status_code == 200 and 'access_token' in response.json():
             self.token = response.json()['access_token']
             self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + self.token)
+            # these tests authenticate with the Bearer header only, so that clearing it
+            # (self.client.credentials()) really leaves the client logged out
+            self.client.cookies.clear()
         else:
             print("Login failed. Status:", response.status_code, "Content:", response.content)
             self.token = None

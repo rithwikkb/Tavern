@@ -94,7 +94,7 @@ The pipeline itself is locked down: workflows get read-only access, every third-
 
 In the app:
 
-- JWT authentication with rotating refresh tokens, revoked on logout
+- JWT authentication with rotating refresh tokens, revoked on logout. In the browser the tokens are `HttpOnly` cookies, so page scripts (including one injected through an XSS bug) can't read them, and cookie-authenticated changes require a CSRF token
 - Every write checks that you're acting as yourself, and friends-only or deleted posts (and their comments and likes) never reach people who can't see them
 - Markdown posts are sanitized with DOMPurify, and profile links only accept http(s) URLs
 - Rate limiting on login, signup and image uploads
@@ -104,7 +104,6 @@ In the app:
 
 Planned next:
 
-- Store the JWTs in `HttpOnly` cookies, so a script injected through an XSS bug couldn't read them
 - Add a Content Security Policy
 - Keep rate-limit counts in a shared Redis cache (they're currently per server worker)
 

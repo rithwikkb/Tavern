@@ -65,12 +65,9 @@ const NavigationBar = ({ expanded, onToggleExpanded }) => {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
-    // revoke the refresh token on the server too, so a copied token stops working
-    const refresh = Cookies.get('refresh_token');
+    // the server revokes the refresh token (so a copied one stops working) and clears the cookies
     try {
-      if (refresh) {
-        await api.post('users/logout/', { refresh });
-      }
+      await api.post('users/logout/');
     } catch (error) {
       console.error('Logout request failed:', error);
     } finally {

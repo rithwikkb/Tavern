@@ -1,5 +1,4 @@
 from django.urls import path
-from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     LoginView,
     SignUpView,
@@ -12,12 +11,13 @@ from .views import (
     FollowersDetailView,
     FriendsView,
     FollowingDetailView,
-    GetAllAuthorsView
+    GetAllAuthorsView,
+    CookieTokenRefreshView,
 )
 
 urlpatterns = [
     path('api/login/', LoginView.as_view(), name='login'),  # Use JWT for login
-    path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),  # Refresh JWT token endpoint
+    path('token/refresh/', CookieTokenRefreshView.as_view(), name='token-refresh'),  # Refresh JWT token endpoint
     path('verify/', VerifyTokenView.as_view(), name='verify-token'),  # Verify JWT token endpoint
     path('api/signup/', SignUpView.as_view(), name='signup'),  # User signup endpoint
     path('logout/', LogoutView.as_view(), name='logout'),  # User logout endpoint

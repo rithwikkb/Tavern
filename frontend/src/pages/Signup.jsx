@@ -83,11 +83,11 @@ const Signup = () => {
 
     try {
       // Log the new user straight in so they land on their feed
-      const { refresh_token, access_token, author_id } = await login({
+      const { author_id } = await login({
         username: formData.username,
         password: formData.password,
       });
-      setAuthCookies({ authorId: author_id, accessToken: access_token, refreshToken: refresh_token, isDemo: false });
+      setAuthCookies({ authorId: author_id, isDemo: false });
       navigate('/');
     } catch (err) {
       // account was created but auto-login failed; let them log in manually
