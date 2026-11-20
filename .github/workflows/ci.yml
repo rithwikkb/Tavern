@@ -1,5 +1,5 @@
 # Runs on every push to main and every pull request: backend tests, a frontend build,
-# and security checks (dependency audits, static analysis, secret scanning).
+# a Docker image build, and security checks (dependency audits, static analysis, secret scanning).
 name: CI
 
 on:
@@ -78,6 +78,39 @@ jobs:
         env:
           CI: "true"
           GENERATE_SOURCEMAP: "false"
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check docker-compose.yml
+        run: docker compose config --quiet
+      - name: Build the image
+        run: docker build -t tavern:ci .
+      # start it (with SQLite, no database service needed) and wait for its health check
+      - name: Start the container and check it serves pages
+        env:
+          DJANGO_SECRET_KEY: ci-only-throwaway-key-for-tests-and-deploy-checks-not-a-real-secret
+        run: |
+          docker run -d --name tavern -p 8000:8000 \
+            -e DJANGO_SECRET_KEY -e DJANGO_SECURE_SSL_REDIRECT=False tavern:ci
+          health=starting
+          for _ in $(seq 1 45); do
+            health=$(docker inspect --format '{{.State.Health.Status}}' tavern)
+            [ "$health" = healthy ] && break
+            sleep 2
+          done
+          docker logs tavern
+          echo "container health: $health"
+          [ "$health" = healthy ]
+          curl --fail --silent --show-error http://localhost:8000/healthz/
+          curl --fail --silent --show-error --output /dev/null http://localhost:8000/login/
+          # the container must not run as root
+          [ "$(docker exec tavern whoami)" = tavern ]
 
   security:
     name: Security scans

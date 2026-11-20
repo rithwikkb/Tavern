@@ -1,0 +1,41 @@
+# The whole app locally, with the same PostgreSQL database as production:
+#   docker compose up --build
+# then open http://localhost:8000 and click "Try the demo account".
+#
+# Everything here is for local development only: the passwords and key below are
+# throwaway values, and the site is served over plain http.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: tavern
+      POSTGRES_USER: tavern
+      POSTGRES_PASSWORD: tavern-local-only
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tavern -d tavern"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgres://tavern:tavern-local-only@db:5432/tavern
+      DATABASE_SSL_REQUIRE: "False"
+      DJANGO_SECRET_KEY: local-development-only-key-not-used-anywhere-else-0123456789
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+      # the production settings, but over plain http
+      DJANGO_SECURE_SSL_REDIRECT: "False"
+      DJANGO_HSTS_SECONDS: "0"
+      SITE_URL: http://localhost:8000
+      SEED_DEMO: "true"
+
+volumes:
+  db-data:
